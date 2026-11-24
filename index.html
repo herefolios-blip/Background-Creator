@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Backdrop Prompt Builder</title>
+<style>
+:root{--bg:#edf1f3;--fg:#14202b;--mu:#586774;--pn:#fff;--bd:#cbd5db;--ac:#0b6e78;--af:#fff;--cd:#0f1a22;--cf:#d6e4ea;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1519;--fg:#e3ebf0;--mu:#8ea0ad;--pn:#172027;--bd:#2c3943;--ac:#3fb7c4;--af:#06191c;--cd:#0a1014;--cf:#c5d6de}}
+:root[data-theme="dark"]{--bg:#0f1519;--fg:#e3ebf0;--mu:#8ea0ad;--pn:#172027;--bd:#2c3943;--ac:#3fb7c4;--af:#06191c;--cd:#0a1014;--cf:#c5d6de}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}h2{font-size:17px;margin:0 0 10px}
+.lead{color:var(--mu);margin:0 0 20px;max-width:70ch}
+.cols{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+@media(min-width:900px){.cols{grid-template-columns:minmax(0,5fr) minmax(0,6fr)}.sticky{position:sticky;top:12px;align-self:start}}
+.pn{background:var(--pn);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:16px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu)}
+input,select,textarea,button{font:inherit;color:var(--fg)}
+input,select,textarea{background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:7px 8px;width:100%}
+textarea{min-height:80px;resize:vertical}
+label.ck{flex-direction:row;align-items:flex-start;gap:8px;color:var(--fg);margin-top:8px}label.ck input{width:auto;margin-top:4px}
+.hint{font-size:12.5px;color:var(--mu);margin:4px 0 0}
+button{cursor:pointer;background:var(--pn);border:1px solid var(--bd);border-radius:6px;padding:7px 12px}
+button.pr{background:var(--ac);color:var(--af);border-color:var(--ac);font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+pre{margin:0;background:var(--cd);color:var(--cf);border-radius:8px;padding:12px;max-height:340px;overflow:auto;font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word}
+.tabs button[aria-pressed=true]{background:var(--ac);color:var(--af);border-color:var(--ac)}
+.sv{display:flex;gap:6px;align-items:center;margin:4px 0;font-size:14px}.sv span{flex:1}
+.stat{color:var(--mu);font-size:13px}
+</style></head><body><main>
+<h1>Backdrop Prompt Builder</h1>
+<p class="lead">Describe the room, copy the prompt, paste it into your chat AI with your room photos attached, then paste the script it returns into Blender’s Scripting tab and press Run.</p>
+<div class="cols"><div>
+<section class="pn"><h2>Project</h2><div class="g" id="f1"></div></section>
+<section class="pn"><h2>Look and lighting</h2><div class="g" id="f2"></div><label style="margin-top:12px">Style and changes<textarea id="style" placeholder="e.g. keep the layout, swap the sofa for a walnut sideboard, add warm sconces"></textarea></label></section>
+<section class="pn"><h2>Output and camera</h2><div class="g" id="f3"></div><p class="hint">Defaults match a Super 35 cinema camera, seated eye height, focused where the talent stands.</p></section>
+<section class="pn"><h2>Realism options</h2><div id="cks"></div>
+<label style="margin-top:12px">Approved Poly Haven asset IDs (one per line as type: id)<textarea id="assets"></textarea></label>
+<p class="hint">Starter list is unverified: preview each ID on polyhaven.com first. The script falls back to procedural materials if a download fails.</p></section>
+<section class="pn"><h2>Saved projects</h2><div class="row"><button id="save">Save current</button></div><div id="sl" class="stat">Nothing saved yet.</div></section>
+</div><div class="sticky">
+<section class="pn"><h2>Your prompt</h2>
+<div class="row tabs" id="tabs"></div>
+<p class="hint" id="steph"></p>
+<pre id="out"></pre><div class="row"><button class="pr" id="copy">Copy prompt</button><span class="stat" id="st"></span></div>
+<ol class="hint" style="padding-left:18px"><li>Open a new chat and attach your photo(s).</li><li>Paste the prompt and send.</li><li>In Blender, open the Scripting tab, paste the script, press Run.</li></ol></section>
+<section class="pn"><h2>Assemble full script</h2><p class="hint">Paste each stage’s code from the AI. The app strips code fences, adds the render header and helpers, and a runner that calls each stage safely and logs Poly Haven results.</p><div id="stg" class="g" style="grid-template-columns:1fr"></div><div class="row"><button class="pr" id="asm">Build full script</button><button id="cpf">Copy full script</button><button id="tst">Copy helper self-test</button><span class="stat" id="as"></span></div><pre id="full" hidden></pre></section>
+<section class="pn"><h2>Render tweaks (no rebuild needed)</h2><p class="hint">After the scene is built, set these, copy the script and run it in Blender’s Scripting tab. Blank fields stay unchanged. Save your .blend first so // paths work. Light power multiplies current values, so run it once per change.</p><div class="g" id="f4"></div><pre id="xo" style="margin-top:10px"></pre><div class="row"><button class="pr" id="cpx">Copy render script</button></div></section>
+<script type="text/plain" id="hlp">
+import os, json, ssl, random, math, bmesh, urllib.request
+import mathutils
+from mathutils import Vector, Matrix, Euler
+try:
+    bpy.mathutils = mathutils
+except Exception:
+    pass
+MATS = {}
+PH_LOG = []
+UA = {'User-Agent': 'BackdropBuilder/1.0'}
+def _ctx():
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+def _get(url, timeout=60):
+    url = url.get('url') if isinstance(url, dict) else url
+    err = None
+    for ctx in (_ctx(), ssl._create_unverified_context()):  # 2nd: macOS certificate fallback
+        try:
+            return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout, context=ctx).read()
+        except Exception as e:
+            err = e
+    PH_LOG.append('FAIL ' + url + ' ' + str(err))
+def ph_json(url):
+    b = _get(url, 30)
+    return json.loads(b.decode()) if b else None
+def ph_download(url, name):
+    d = os.path.expanduser('~/.backdrop_ph')
+    os.makedirs(d, exist_ok=True)
+    p = os.path.join(d, name)
+    if not os.path.exists(p):
+        b = _get(url)
+        if not b:
+            return None
+        open(p, 'wb').write(b)
+        PH_LOG.append('OK ' + name)
+    return p
+def ph_maps(pid, res='2k'):
+    d = ph_json('https://api.polyhaven.com/files/' + pid)
+    out = {}
+    if not d:
+        return out
+    for key, tag in (('Diffuse', 'diff'), ('Rough', 'rough'), ('nor_gl', 'nor')):
+        try:
+            e = d[key][res]
+            e = e.get('jpg') or e.get('png') or list(e.values())[0]
+            out[tag] = ph_download(e['url'], pid + '_' + res + '_' + tag + os.path.splitext(e['url'])[1])
+        except Exception as ex:
+            PH_LOG.append('MISSING ' + pid + ' ' + tag + ' ' + repr(ex))
+    return out
+def ph_hdri(pid, res='2k'):
+    try:
+        d = ph_json('https://api.polyhaven.com/files/' + pid)
+        return ph_download(d['hdri'][res]['hdr']['url'], pid + '_' + res + '.hdr')
+    except Exception as ex:
+        PH_LOG.append('HDRI ' + pid + ' ' + repr(ex))
+def ph_material(name, pid, scale=1.0, res='2k'):
+    if name in MATS:
+        return MATS[name]
+    mps = ph_maps(pid, res)
+    if not mps.get('diff'):
+        return None
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    N = nt.nodes.new
+    L = nt.links.new
+    out = N('ShaderNodeOutputMaterial')
+    bs = N('ShaderNodeBsdfPrincipled')
+    tc = N('ShaderNodeTexCoord')
+    mp = N('ShaderNodeMapping')
+    mp.inputs['Scale'].default_value = (scale, scale, scale)
+    L(tc.outputs['Object'], mp.inputs['Vector'])
+    def img(tag, cs):
+        n = N('ShaderNodeTexImage')
+        n.image = bpy.data.images.load(mps[tag], check_existing=True)
+        n.image.colorspace_settings.name = cs
+        n.projection = 'BOX'
+        n.projection_blend = 0.2
+        L(mp.outputs['Vector'], n.inputs['Vector'])
+        return n
+    L(img('diff', 'sRGB').outputs['Color'], bs.inputs['Base Color'])
+    if mps.get('rough'):
+        L(img('rough', 'Non-Color').outputs['Color'], bs.inputs['Roughness'])
+    if mps.get('nor'):
+        nm = N('ShaderNodeNormalMap')
+        L(img('nor', 'Non-Color').outputs['Color'], nm.inputs['Color'])
+        L(nm.outputs['Normal'], bs.inputs['Normal'])
+    L(bs.outputs['BSDF'], out.inputs['Surface'])
+    MATS[name] = m
+    return m
+def collection(name):
+    name = name if isinstance(name, str) else 'Set'
+    c = bpy.data.collections.get(name)
+    if not c:
+        c = bpy.data.collections.new(name)
+        sc.collection.children.link(c)
+    return c
+def bevel(o, w=0.006):
+    m = o.modifiers.new('Bevel', 'BEVEL')
+    m.width = w
+    m.segments = 2
+    m.limit_method = 'ANGLE'
+def _mk(name, v, f, loc, rot, mat, col, b, size, smooth=False):
+    if not isinstance(col, str):
+        col = 'Set'
+    if isinstance(mat, str):
+        mat = MATS.get(mat)
+    if not isinstance(b, (int, float)):
+        b = 0.006
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(v, [], f)
+    me.update()
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(me)
+    bm.free()
+    if smooth:
+        for pg in me.polygons:
+            pg.use_smooth = (len(pg.vertices) == 4) if smooth == 'quads' else True
+    o = bpy.data.objects.new(name, me)
+    o.location = loc
+    o.rotation_euler = rot
+    collection(col).objects.link(o)
+    if mat:
+        me.materials.append(mat)
+    if b:
+        bevel(o, max(0.001, min(b, size / 3)))
+    return o
+def box(name, size, loc, mat=None, col='Set', b=0.006, rot=(0, 0, 0), **kw):
+    mat = kw.get('material', mat)
+    col = kw.get('collection', col)
+    rot = kw.get('rotation', rot)
+    mat = _grain(mat, size)
+    x, y, z = size[0] / 2, size[1] / 2, size[2] / 2
+    v = [(a * x, c * y, d * z) for a in (-1, 1) for c in (-1, 1) for d in (-1, 1)]
+    f = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+    return _mk(name, v, f, loc, rot, mat, col, b, min(size))
+def cyl(name, r, h, loc, mat=None, col='Set', seg=32, b=0.004, rot=(0, 0, 0), **kw):
+    mat = kw.get('material', mat)
+    col = kw.get('collection', col)
+    rot = kw.get('rotation', rot)
+    v = []
+    f = []
+    for i in range(seg):
+        a = 2 * math.pi * i / seg
+        v += [(r * math.cos(a), r * math.sin(a), -h / 2), (r * math.cos(a), r * math.sin(a), h / 2)]
+    for i in range(seg):
+        j = (i + 1) % seg
+        f.append((2 * i, 2 * j, 2 * j + 1, 2 * i + 1))
+    f.append(tuple(2 * i for i in range(seg))[::-1])
+    f.append(tuple(2 * i + 1 for i in range(seg)))
+    return _mk(name, v, f, loc, rot, mat, col, b, min(r * 2, h), 'quads')
+LAYOUT = []
+LAYOUT_LOG = []
+def in_view(loc, size, margin=0.04, floor=False):
+    cam = sc.camera
+    if not cam:
+        return True
+    from bpy_extras.object_utils import world_to_camera_view
+    from mathutils import Vector
+    bpy.context.view_layer.update()
+    cs = []
+    for a in (-1, 1):
+        for b in (-1, 1):
+            for c in (-1, 1):
+                cs.append(world_to_camera_view(sc, cam, Vector((loc[0] + a * size[0] / 2, loc[1] + b * size[1] / 2, loc[2] + c * size[2] / 2))))
+    if any(q.z <= 0 for q in cs):
+        return False
+    if any(q.x < margin or q.x > 1 - margin for q in cs):
+        return False
+    if floor:
+        return 0.15 <= max(q.y for q in cs) <= 1 - margin
+    return all(margin <= q.y <= 1 - margin for q in cs)
+FIXTURE_WORDS = ('lamp', 'sconce', 'light', 'fixture', 'downlight', 'pendant', 'candle', 'shelf', 'led', 'bulb', 'shade', 'lantern')
+ORPHAN_MOVED = []
+_GENERIC = ('light', 'lamp', 'point', 'spot', 'area', 'practical', 'glow', 'src', 'source', 'emit', 'pl', 'sp')
+def _toks(name):
+    return set(t for t in name.lower().replace('.', '_').split('_') if t and not t.isdigit() and t not in _GENERIC)
+def remove_orphan_lights():
+    from mathutils import Vector
+    bpy.context.view_layer.update()
+    fx = []
+    for o in bpy.data.objects:
+        n = o.name.lower()
+        if o.type == 'MESH' and any(k in n for k in FIXTURE_WORDS) and not o.hide_render and all(not c.hide_render for c in o.users_collection):
+            pts = [o.matrix_world @ Vector(c) for c in o.bound_box]
+            lo = [min(q[i] for q in pts) for i in range(3)]
+            hi = [max(q[i] for q in pts) for i in range(3)]
+            fx.append((o, lo, hi, _toks(o.name)))
+    gone = []
+    b = room_bounds()
+    for o in bpy.data.objects:
+        if o.type == 'LIGHT' and o.data.type in ('POINT', 'SPOT') and not o.hide_render:
+            p = o.matrix_world.translation
+            if any(all(lo[i] - 0.4 <= p[i] <= hi[i] + 0.4 for i in range(3)) for f, lo, hi, tk in fx):
+                continue
+            lt = _toks(o.name)
+            best = None
+            for f, lo, hi, tk in fx:
+                sh = lt & tk
+                if lt and len(sh) >= min(2, len(lt)):
+                    c = Vector([(lo[i] + hi[i]) / 2 for i in range(3)])
+                    sc_ = (len(sh), -(c - p).length)
+                    if not best or sc_ > best[0]:
+                        best = (sc_, f, c)
+            if best:
+                c = best[2]
+                if b:
+                    mid = Vector(((b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2, c.z))
+                    off = mid - c
+                    off.z = 0
+                    if off.length > 1e-6:
+                        c = c + off.normalized() * 0.1
+                o.matrix_world.translation = c
+                ORPHAN_MOVED.append('%s -> %s' % (o.name, best[1].name))
+                continue
+            o.hide_render = True
+            o.hide_viewport = True
+            gone.append(o.name)
+    return gone
+def _free(loc, size, group, pad):
+    for g, lo, hi in LAYOUT:
+        if group and g == group:
+            continue
+        if all(loc[i] - size[i] / 2 - pad < hi[i] and loc[i] + size[i] / 2 + pad > lo[i] for i in range(3)):
+            return False
+    return True
+_RB = []
+def room_bounds():
+    if _RB:
+        return _RB[0]
+    from mathutils import Vector
+    bpy.context.view_layer.update()
+    best = None
+    for o in bpy.data.objects:
+        n = o.name.lower()
+        if o.type == 'MESH' and 'floor' in n and 'lamp' not in n:
+            pts = [o.matrix_world @ Vector(c) for c in o.bound_box]
+            lo = (min(q.x for q in pts), min(q.y for q in pts))
+            hi = (max(q.x for q in pts), max(q.y for q in pts))
+            area = (hi[0] - lo[0]) * (hi[1] - lo[1])
+            if area > 6 and (not best or area > best[0]):
+                best = (area, lo, hi)
+    if not best:
+        return None
+    r = ((best[1][0] + 0.15, best[1][1] + 0.15), (best[2][0] - 0.15, best[2][1] - 0.15))
+    _RB.append(r)
+    return r
+def _in_zone(loc, size):
+    if not CLEAR_ZONE_W or not sc.camera:
+        return False
+    from mathutils import Vector
+    mw = sc.camera.matrix_world
+    o = mw.translation
+    fw = mw.to_3x3() @ Vector((0, 0, -1))
+    f = Vector((fw.x, fw.y, 0))
+    if f.length < 1e-6:
+        return False
+    f.normalize()
+    r = Vector((f.y, -f.x, 0))
+    half = CLEAR_ZONE_W / 2
+    back = TALENT_DIST + 0.75
+    lat = []
+    al = []
+    for a in (-1, 1):
+        for b in (-1, 1):
+            p = Vector((loc[0] + a * size[0] / 2 - o.x, loc[1] + b * size[1] / 2 - o.y, 0))
+            lat.append(p.dot(r))
+            al.append(p.dot(f))
+    return max(lat) > -half and min(lat) < half and max(al) > 0.3 and min(al) < back
+def reserve(name, loc, size, slide=(1, 0, 0), visible=True, pad=0.05, group=None):
+    floor_item = loc[2] - size[2] / 2 < 0.3
+    b = room_bounds() if floor_item else None
+    if floor_item and (any(k in name.lower() for k in ('rug', 'carpet', 'runner')) or size[2] <= 0.03):
+        l = list(loc)
+        if b:
+            for i in (0, 1):
+                a0, a1 = b[0][i] + size[i] / 2, b[1][i] - size[i] / 2
+                l[i] = min(max(l[i], a0), a1) if a0 <= a1 else (b[0][i] + b[1][i]) / 2
+        if tuple(l) != tuple(loc):
+            LAYOUT_LOG.append('%s moved inside the room walls' % name)
+        return tuple(l)
+    def ok(l):
+        if b and not all(l[i] - size[i] / 2 >= b[0][i] and l[i] + size[i] / 2 <= b[1][i] for i in (0, 1)):
+            return False
+        if floor_item and _in_zone(l, size):
+            return False
+        return _free(l, size, group, pad) and (not visible or in_view(l, size, floor=floor_item))
+    cands = [tuple(loc)]
+    if floor_item:
+        for k in range(1, 25):
+            for a in range(12):
+                t = 2 * math.pi * a / 12
+                cands.append((loc[0] + 0.15 * k * math.cos(t), loc[1] + 0.15 * k * math.sin(t), loc[2]))
+    else:
+        for k in range(1, 31):
+            for sg in (1, -1):
+                t = 0.1 * k * sg
+                cands.append((loc[0] + slide[0] * t, loc[1] + slide[1] * t, loc[2] + slide[2] * t))
+    for l in cands:
+        if ok(l):
+            LAYOUT.append((group or name, tuple(l[i] - size[i] / 2 for i in range(3)), tuple(l[i] + size[i] / 2 for i in range(3))))
+            if tuple(l) != tuple(loc):
+                LAYOUT_LOG.append('%s moved to stay inside the room, in frame and clear of other items' % name)
+            return l
+    LAYOUT_LOG.append('NO ROOM for ' + name + ': skipped')
+    return None
+PROP_WORDS = ('plant', 'lamp', 'rug', 'sofa', 'couch', 'chair', 'table', 'shelf', 'book', 'vase', 'cushion', 'stool', 'desk', 'cabinet', 'sideboard', 'ottoman', 'pouf', 'bench', 'mug', 'bookcase')
+def contain_props():
+    b = room_bounds()
+    if not b or not sc.camera:
+        return []
+    from mathutils import Vector
+    bpy.context.view_layer.update()
+    items = []
+    for o in bpy.data.objects:
+        n = o.name.lower()
+        if o.type == 'MESH' and o.parent is None and any(k in n for k in PROP_WORDS) and not any(k in n for k in ('wall', 'ceiling', 'window', 'exterior', 'building', 'tree', 'rug', 'carpet', 'runner')):
+            pts = [o.matrix_world @ Vector(c) for c in o.bound_box]
+            items.append((o, [min(q[i] for q in pts) for i in range(3)], [max(q[i] for q in pts) for i in range(3)]))
+    par = list(range(len(items)))
+    def find(i):
+        while par[i] != i:
+            par[i] = par[par[i]]
+            i = par[i]
+        return i
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            if all(items[i][1][k] < items[j][2][k] + 0.03 and items[i][2][k] > items[j][1][k] - 0.03 for k in range(3)):
+                par[find(i)] = find(j)
+    cl = {}
+    for i, it in enumerate(items):
+        cl.setdefault(find(i), []).append(it)
+    moved = []
+    for members in cl.values():
+        lo = [min(m[1][k] for m in members) for k in range(3)]
+        hi = [max(m[2][k] for m in members) for k in range(3)]
+        if lo[2] > 0.4:
+            continue
+        size = [hi[k] - lo[k] for k in range(3)]
+        c = [(lo[k] + hi[k]) / 2 for k in range(3)]
+        if lo[0] >= b[0][0] and lo[1] >= b[0][1] and hi[0] <= b[1][0] and hi[1] <= b[1][1]:
+            continue
+        x0 = c[0] + max(0, b[0][0] - lo[0]) - max(0, hi[0] - b[1][0])
+        y0 = c[1] + max(0, b[0][1] - lo[1]) - max(0, hi[1] - b[1][1])
+        cand = [(x0, y0, c[2])]
+        for k in range(1, 25):
+            for a in range(12):
+                t = 2 * math.pi * a / 12
+                cand.append((x0 + 0.15 * k * math.cos(t), y0 + 0.15 * k * math.sin(t), c[2]))
+        for pos in cand:
+            if all(pos[i] - size[i] / 2 >= b[0][i] and pos[i] + size[i] / 2 <= b[1][i] for i in (0, 1)) and in_view(pos, size, floor=True):
+                d = Vector(pos) - Vector(c)
+                for m in members:
+                    m[0].location += d
+                moved.append(members[0][0].name)
+                break
+    bpy.context.view_layer.update()
+    return moved
+def art_mat(seed):
+    key = 'art_%d' % seed
+    if key in MATS:
+        return MATS[key]
+    rnd = random.Random(seed)
+    pal = [(0.62, 0.35, 0.28), (0.85, 0.72, 0.52), (0.25, 0.38, 0.45), (0.55, 0.6, 0.45), (0.8, 0.78, 0.72), (0.2, 0.2, 0.22), (0.7, 0.45, 0.5)]
+    cs = rnd.sample(pal, 3)
+    mean = tuple(sum(c[i] for c in cs) / 3 for i in range(3))
+    cs = [tuple(c[i] * 0.55 + mean[i] * 0.45 for i in range(3)) for c in cs]
+    m = bpy.data.materials.new(key)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    N = nt.nodes.new
+    L = nt.links.new
+    out = N('ShaderNodeOutputMaterial')
+    bs = N('ShaderNodeBsdfPrincipled')
+    tc = N('ShaderNodeTexCoord')
+    mp = N('ShaderNodeMapping')
+    nz = N('ShaderNodeTexNoise')
+    cr = N('ShaderNodeValToRGB')
+    s_ = rnd.uniform(0.6, 1.6)
+    mp.inputs['Scale'].default_value = (s_, s_, s_)
+    nz.inputs['Scale'].default_value = rnd.uniform(0.8, 1.6)
+    nz.inputs['Detail'].default_value = 1
+    nz.inputs['Distortion'].default_value = rnd.uniform(0.1, 0.4)
+    cr.color_ramp.elements[0].position = 0.3
+    cr.color_ramp.elements[1].position = 0.7
+    cr.color_ramp.elements[0].color = cs[0] + (1,)
+    cr.color_ramp.elements[1].color = cs[1] + (1,)
+    e = cr.color_ramp.elements.new(0.5)
+    e.color = cs[2] + (1,)
+    L(tc.outputs['Generated'], mp.inputs['Vector'])
+    L(mp.outputs['Vector'], nz.inputs['Vector'])
+    L(nz.outputs['Fac'], cr.inputs['Fac'])
+    L(cr.outputs['Color'], bs.inputs['Base Color'])
+    bs.inputs['Roughness'].default_value = 0.55
+    L(bs.outputs['BSDF'], out.inputs['Surface'])
+    MATS[key] = m
+    return m
+def art(name, loc, w, h, facing=(0, -1), seed=1):
+    fx, fy = facing
+    th = math.atan2(-fx, fy)
+    wide_x = abs(fx) < abs(fy)
+    size = (w, 0.05, h) if wide_x else (0.05, w, h)
+    loc = reserve(name, loc, size, slide=(1, 0, 0) if wide_x else (0, 1, 0))
+    if loc is None:
+        return None
+    fm = MATS.get('art_frame') or pbr('art_frame', (0.3, 0.22, 0.16), (0.3, 0.45), 'wood', 0.05)
+    mt = MATS.get('art_mount') or pbr('art_mount', (0.78, 0.76, 0.7), (0.7, 0.9), 'paper', 0.04, 40, 0.03)
+    bw = 0.04
+    d = 0.03
+    rot = (0, 0, th)
+    def at(f_, dx=0.0, dz=0.0):
+        return (loc[0] + fx * f_ + math.cos(th) * dx, loc[1] + fy * f_ + math.sin(th) * dx, loc[2] + dz)
+    o = box(name + '_top', (w, d, bw), at(0, 0, h / 2 - bw / 2), fm, 'Decor', 0.004, rot)
+    box(name + '_bot', (w, d, bw), at(0, 0, -h / 2 + bw / 2), fm, 'Decor', 0.004, rot)
+    box(name + '_left', (bw, d, h - 2 * bw), at(0, -(w / 2 - bw / 2)), fm, 'Decor', 0.004, rot)
+    box(name + '_right', (bw, d, h - 2 * bw), at(0, w / 2 - bw / 2), fm, 'Decor', 0.004, rot)
+    iw, ih = w - 2 * bw, h - 2 * bw
+    box(name + '_mount', (iw + 0.01, 0.006, ih + 0.01), at(0.004), mt, 'Decor', 0, rot)
+    box(name + '_art', (iw - 0.1, 0.003, ih - 0.1), at(0.0075), art_mat(seed), 'Decor', 0, rot)
+    box(name + '_glass', (iw, 0.003, ih), at(0.0115), glass('art_glass'), 'Decor', 0, rot)
+    return o
+def door(name, loc, w=0.9, h=2.1, facing=(0, -1)):
+    fx, fy = facing
+    th = math.atan2(-fx, fy)
+    wide_x = abs(fx) < abs(fy)
+    size = (w + 0.14, 0.12, h) if wide_x else (0.12, w + 0.14, h)
+    loc = reserve(name, loc, size, slide=(1, 0, 0) if wide_x else (0, 1, 0))
+    if loc is None:
+        return None
+    fm = MATS.get('door_frame') or pbr('door_frame', (0.82, 0.8, 0.76), (0.45, 0.6), 'plaster', 0.03, 30, 0.04)
+    lf = MATS.get('door_leaf') or pbr('door_leaf', (0.42, 0.3, 0.2), (0.35, 0.5), 'wood', 0.05)
+    mt = MATS.get('door_metal') or pbr('door_metal', (0.7, 0.62, 0.45), (0.25, 0.4), 'metal', 0.02, 40)
+    rot = (0, 0, th)
+    def at(dy, dx=0.0, dz=0.0):
+        return (loc[0] + fx * dy + math.cos(th) * dx, loc[1] + fy * dy + math.sin(th) * dx, loc[2] + dz)
+    box(name + '_jambL', (0.07, 0.07, h), at(0.025, -(w / 2 + 0.035), h / 2), fm, 'Doors', 0.004, rot)
+    box(name + '_jambR', (0.07, 0.07, h), at(0.025, w / 2 + 0.035, h / 2), fm, 'Doors', 0.004, rot)
+    box(name + '_head', (w + 0.14, 0.07, 0.07), at(0.025, 0, h + 0.035), fm, 'Doors', 0.004, rot)
+    o = box(name + '_leaf', (w, 0.04, h), at(0.015, 0, h / 2), lf, 'Doors', 0.003, rot)
+    for n, z in ((1, h * 0.26), (2, h * 0.72)):
+        box('%s_panel%d' % (name, n), (w * 0.7, 0.008, h * 0.38), at(0.039, 0, z), lf, 'Doors', 0.003, rot)
+    box(name + '_rose', (0.05, 0.012, 0.05), at(0.047, w / 2 - 0.07, 1.0), mt, 'Doors', 0.003, rot)
+    box(name + '_lever', (0.12, 0.014, 0.02), at(0.06, w / 2 - 0.11, 1.0), mt, 'Doors', 0.003, rot)
+    box(name + '_kick', (w - 0.1, 0.006, 0.16), at(0.038, 0, 0.1), mt, 'Doors', 0.002, rot)
+    for n, z in ((1, 0.3), (2, h - 0.3)):
+        box('%s_hinge%d' % (name, n), (0.02, 0.012, 0.09), at(0.033, -(w / 2 + 0.005), z), mt, 'Doors', 0.002, rot)
+    return o
+def window_light(name, loc, w, h, aim, watts=900, k=5600, bars=(3, 2), bar=0.045):
+    from mathutils import Vector
+    dv = Vector(aim).normalized()
+    q = dv.to_track_quat('-Z', 'Y')
+    rot = tuple(q.to_euler())
+    lt = lamp(name, 'AREA', loc, watts, k, w, rot)
+    lt.data.shape = 'RECTANGLE'
+    lt.data.size = w
+    lt.data.size_y = h
+    right = q @ Vector((1, 0, 0))
+    up = q @ Vector((0, 1, 0))
+    gm = pbr('gobo_black', (0.02, 0.02, 0.02), (0.8, 0.9), 'plaster', 0, 1)
+    P = Vector(loc) + dv * 0.08
+    def put(n, sx, sy, dx, dy):
+        p = P + right * dx + up * dy
+        o = box(n, (sx, sy, 0.02), (p.x, p.y, p.z), gm, 'Lights', 0, rot)
+        try:
+            o.visible_camera = False
+        except Exception:
+            pass
+    put(name + '_gt', w, bar, 0, h / 2 - bar / 2)
+    put(name + '_gb', w, bar, 0, -h / 2 + bar / 2)
+    put(name + '_gl', bar, h, -w / 2 + bar / 2, 0)
+    put(name + '_gr', bar, h, w / 2 - bar / 2, 0)
+    for i in range(1, bars[0]):
+        put('%s_gv%d' % (name, i), bar, h, -w / 2 + w * i / bars[0], 0)
+    for i in range(1, bars[1]):
+        put('%s_gh%d' % (name, i), w, bar, 0, -h / 2 + h * i / bars[1])
+    return lt
+def layout_report():
+    from mathutils import Vector
+    out = list(LAYOUT_LOG)
+    keys = ('frame', 'picture', 'poster', 'sconce', 'vent', 'switch', 'socket', '_art', 'artwork')
+    parts = ('frame', 'art', 'canvas', 'border', 'top', 'bottom', 'bot', 'left', 'right', 'mat', 'mount', 'glass', 'back')
+    items = []
+    for o in bpy.data.objects:
+        if o.type == 'MESH' and not o.hide_render and any(k in o.name.lower() for k in keys):
+            pts = [o.matrix_world @ Vector(c) for c in o.bound_box]
+            lo = [min(q[i] for q in pts) for i in range(3)]
+            hi = [max(q[i] for q in pts) for i in range(3)]
+            stem = '_'.join(t for t in o.name.lower().split('_') if t not in parts) or o.name
+            items.append((o.name, stem, lo, hi, pts))
+    for a in range(len(items)):
+        for b in range(a + 1, len(items)):
+            if items[a][1] != items[b][1] and all(items[a][2][i] < items[b][3][i] - 0.02 and items[a][3][i] > items[b][2][i] + 0.02 for i in range(3)):
+                out.append('Possible collision: %s / %s' % (items[a][0], items[b][0]))
+    if sc.camera:
+        from bpy_extras.object_utils import world_to_camera_view
+        for n, st, lo, hi, pts in items:
+            c = world_to_camera_view(sc, sc.camera, Vector([(lo[i] + hi[i]) / 2 for i in range(3)]))
+            if c.z > 0 and 0 < c.x < 1 and 0 < c.y < 1:
+                for q in pts:
+                    w = world_to_camera_view(sc, sc.camera, q)
+                    if w.x < 0.02 or w.x > 0.98 or w.y < 0.02 or w.y > 0.98:
+                        out.append('Cut off at frame edge: ' + n)
+                        break
+    return out
+def auto_expose(target=0.42, passes=3):
+    rd = sc.render
+    old = (rd.resolution_percentage, sc.cycles.samples, rd.filepath, rd.image_settings.file_format)
+    path = os.path.join(bpy.app.tempdir, 'ae.png')
+    rd.resolution_percentage = max(5, int(480 * 100 / rd.resolution_x))
+    sc.cycles.samples = 16
+    rd.image_settings.file_format = 'PNG'
+    rd.filepath = path
+    ev = sc.view_settings.exposure
+    try:
+        for _ in range(passes):
+            bpy.ops.render.render(write_still=True)
+            img = bpy.data.images.load(path)
+            img.colorspace_settings.name = 'Non-Color'
+            px = img.pixels[:]
+            bpy.data.images.remove(img)
+            lum = sorted(0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2] for i in range(0, len(px), 4))
+            cur = max(1e-3, 0.5 * lum[len(lum) // 2] + 0.5 * sum(lum) / len(lum))
+            step = math.log2((target / cur) ** 2.2) * 0.85
+            ev += max(-3.0, min(3.0, step))
+            sc.view_settings.exposure = ev
+            if abs(step) < 0.15:
+                break
+    finally:
+        rd.resolution_percentage, sc.cycles.samples, rd.filepath, rd.image_settings.file_format = old
+    return ev
+def reset_scene():
+    n = len(bpy.data.objects)
+    for o in list(bpy.data.objects):
+        bpy.data.objects.remove(o, do_unlink=True)
+    for c in list(bpy.data.collections):
+        bpy.data.collections.remove(c)
+    for blocks in (bpy.data.meshes, bpy.data.lights, bpy.data.cameras, bpy.data.curves, bpy.data.materials, bpy.data.images):
+        for b in list(blocks):
+            if b.users == 0 and getattr(b, 'type', '') != 'RENDER_RESULT':
+                blocks.remove(b)
+    LAYOUT.clear()
+    LAYOUT_LOG.clear()
+    MATS.clear()
+    _RB.clear()
+    return n
+def _mn(nt, op, a, b=None):
+    n = nt.nodes.new('ShaderNodeMath')
+    n.operation = op
+    for i, x in enumerate((a, b)):
+        if x is None:
+            continue
+        if isinstance(x, (int, float)):
+            n.inputs[i].default_value = x
+        else:
+            nt.links.new(x, n.inputs[i])
+    return n.outputs[0]
+def _rng(nt, v, a, b, c, d):
+    n = nt.nodes.new('ShaderNodeMapRange')
+    n.interpolation_type = 'SMOOTHSTEP'
+    n.inputs['From Min'].default_value = a
+    n.inputs['From Max'].default_value = b
+    n.inputs['To Min'].default_value = c
+    n.inputs['To Max'].default_value = d
+    nt.links.new(v, n.inputs['Value'])
+    return n.outputs['Result']
+def _grain(m, size):
+    if m is None or isinstance(m, str) or m.get('kind') != 'wood':
+        return m
+    ax = max(range(3), key=lambda i: size[i])
+    key = m.name.split('#')[0] + '#' + 'xyz'[ax]
+    if key in MATS:
+        return MATS[key]
+    v = m.copy()
+    v.name = key
+    mp = v.node_tree.nodes.get('GrainMap')
+    if mp:
+        sc3 = list(mp.inputs['Scale'].default_value)
+        sc3[ax] = sc3[ax] * 0.04
+        mp.inputs['Scale'].default_value = sc3
+    MATS[key] = v
+    return v
+def leaf_mat(name='leaf', base=(0.07, 0.24, 0.06)):
+    if name in MATS:
+        return MATS[name]
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    N = nt.nodes.new
+    L = nt.links.new
+    out = N('ShaderNodeOutputMaterial')
+    bs = N('ShaderNodeBsdfPrincipled')
+    tc = N('ShaderNodeTexCoord')
+    sp = N('ShaderNodeSeparateXYZ')
+    L(tc.outputs['Generated'], sp.inputs['Vector'])
+    u = _mn(nt, 'MULTIPLY', _mn(nt, 'ABSOLUTE', _mn(nt, 'SUBTRACT', sp.outputs['Y'], 0.5)), 2.0)
+    mid = _rng(nt, u, 0.0, 0.05, 1.0, 0.0)
+    ph = _mn(nt, 'ADD', _mn(nt, 'MULTIPLY', sp.outputs['X'], 14.0), _mn(nt, 'MULTIPLY', u, 3.0))
+    side = _mn(nt, 'ABSOLUTE', _mn(nt, 'SUBTRACT', _mn(nt, 'FRACT', ph), 0.5))
+    sv = _mn(nt, 'MULTIPLY', _rng(nt, side, 0.0, 0.1, 1.0, 0.0), 0.55)
+    vein = _mn(nt, 'MAXIMUM', mid, sv)
+    nz = N('ShaderNodeTexNoise')
+    nz.inputs['Scale'].default_value = 7
+    L(tc.outputs['Generated'], nz.inputs['Vector'])
+    oi = N('ShaderNodeObjectInfo')
+    c1 = N('ShaderNodeMix')
+    c1.data_type = 'RGBA'
+    c1.inputs[6].default_value = tuple(c * 0.7 for c in base) + (1,)
+    c1.inputs[7].default_value = tuple(min(1, c * 1.6) for c in base) + (1,)
+    L(_mn(nt, 'ADD', nz.outputs['Fac'], _mn(nt, 'MULTIPLY', _mn(nt, 'SUBTRACT', oi.outputs['Random'], 0.5), 0.6)), c1.inputs[0])
+    c2 = N('ShaderNodeMix')
+    c2.data_type = 'RGBA'
+    c2.inputs[7].default_value = (0.38, 0.5, 0.2, 1)
+    L(vein, c2.inputs[0])
+    L(c1.outputs[2], c2.inputs[6])
+    L(c2.outputs[2], bs.inputs['Base Color'])
+    bs.inputs['Roughness'].default_value = 0.42
+    for k in ('Subsurface Weight', 'Subsurface'):
+        if k in bs.inputs:
+            bs.inputs[k].default_value = 0.15
+            break
+    bp = N('ShaderNodeBump')
+    bp.inputs['Strength'].default_value = 0.25
+    bp.inputs['Distance'].default_value = 0.002
+    L(vein, bp.inputs['Height'])
+    L(bp.outputs['Normal'], bs.inputs['Normal'])
+    L(bs.outputs['BSDF'], out.inputs['Surface'])
+    MATS[name] = m
+    return m
+def leaf(name, length, width, loc, rot=(0, 0, 0), mat=None, col='Plants', bend=0.35, segs=10):
+    cols = (-1.0, -0.5, 0.0, 0.5, 1.0)
+    nc = len(cols)
+    v = []
+    f = []
+    for i in range(segs + 1):
+        t = i / segs
+        w = width * math.sin(math.pi * (t ** 0.75)) * 0.5
+        for s_ in cols:
+            z = -bend * length * t * t + 0.03 * length * (1 - abs(s_)) * (1 - t) - 0.05 * width * s_ * s_ * math.sin(math.pi * t)
+            v.append((length * t, s_ * w, z))
+    for i in range(segs):
+        for j in range(nc - 1):
+            a = i * nc + j
+            f.append((a, a + nc, a + nc + 1, a + 1))
+    return _mk(name, v, f, loc, rot, mat or leaf_mat(), col, 0, length, True)
+def tube(name, p0, p1, r0, r1, mat=None, col='Plants', bend=0.0, rings=7, seg=8):
+    from mathutils import Vector
+    a = Vector(p0)
+    b = Vector(p1)
+    c = (a + b) / 2 + Vector((0, 0, 1)) * ((b - a).length * bend)
+    v = []
+    f = []
+    for i in range(rings):
+        t = i / (rings - 1)
+        p = a * (1 - t) ** 2 + c * (2 * t * (1 - t)) + b * (t * t)
+        tg = ((c - a) * (2 * (1 - t)) + (b - c) * (2 * t)).normalized()
+        up = Vector((0, 0, 1)) if abs(tg.z) < 0.95 else Vector((1, 0, 0))
+        n1 = tg.cross(up).normalized()
+        n2 = tg.cross(n1)
+        r = r0 + (r1 - r0) * t
+        for k in range(seg):
+            ang = 2 * math.pi * k / seg
+            q = p + n1 * (r * math.cos(ang)) + n2 * (r * math.sin(ang))
+            v.append((q.x, q.y, q.z))
+    for i in range(rings - 1):
+        for k in range(seg):
+            k2 = (k + 1) % seg
+            f.append((i * seg + k, i * seg + k2, (i + 1) * seg + k2, (i + 1) * seg + k))
+    return _mk(name, v, f, (0, 0, 0), (0, 0, 0), mat, col, 0, max(r0, r1) * 2, True)
+BOOK_COLS = [(0.42, 0.16, 0.14), (0.16, 0.28, 0.38), (0.2, 0.33, 0.24), (0.6, 0.5, 0.3), (0.3, 0.2, 0.3), (0.12, 0.12, 0.13), (0.55, 0.28, 0.16), (0.66, 0.62, 0.55), (0.25, 0.3, 0.42), (0.45, 0.15, 0.22)]
+def _bmat(rnd):
+    k = rnd.randrange(len(BOOK_COLS))
+    return pbr('book_%d' % k, BOOK_COLS[k], (0.45, 0.85), 'fabric', 0.12, 25, 0.1)
+def _book(name, x, y, z, w, h, d, sy, rnd, rot=(0, 0, 0), col='Books'):
+    box(name, (w, d, h), (x, y + sy * d / 2, z + h / 2), _bmat(rnd), col, 0.002, rot)
+    if rot == (0, 0, 0) and rnd.random() < 0.8:
+        lab = pbr('label_gold', (0.7, 0.55, 0.25), (0.3, 0.5), 'metal', 0.05, 30)
+        for n, hz in enumerate((0.16, 0.84)):
+            box('%s_band%d' % (name, n), (w * 1.02, 0.003, 0.006 + 0.008 * rnd.random()), (x, y + sy * (d + 0.0015), z + h * hz), lab, col, 0)
+        if rnd.random() < 0.6:
+            box(name + '_title', (w * 0.7, 0.003, 0.05 + 0.04 * rnd.random()), (x, y + sy * (d + 0.0015), z + h * 0.55), pbr('label_cream', (0.8, 0.76, 0.62), (0.6, 0.8), 'paper', 0.05, 30), col, 0)
+def book_row(name, x0, x1, y, z, depth=0.2, seed=1, hmin=0.2, hmax=0.32, face=-1):
+    rnd = random.Random(seed)
+    sy = -1 if face < 0 else 1
+    gap = rnd.choice([0.0, 0.0, 0.28])
+    end = x1 - gap
+    x = x0 + rnd.uniform(0.0, 0.03)
+    tall = rnd.uniform(hmin, hmax)
+    i = 0
+    while True:
+        w = rnd.uniform(0.022, 0.05)
+        if x + w > end:
+            break
+        if rnd.random() < 0.2:
+            tall = rnd.uniform(hmin, hmax)
+        h = tall * rnd.uniform(0.88, 1.04)
+        d = depth * rnd.uniform(0.8, 0.98)
+        pull = rnd.choice([0, 0, 0, 0.01, 0.02])
+        _book('%s_%d' % (name, i), x + w / 2, y + sy * pull, z, w, h, d, sy, rnd)
+        x += w + rnd.choice([0, 0.001, 0.002])
+        i += 1
+    if gap:
+        if rnd.random() < 0.5:
+            w = rnd.uniform(0.025, 0.04)
+            h = rnd.uniform(hmin, hmax)
+            th = -rnd.uniform(0.14, 0.24)
+            xr = x1 - 0.01
+            cx = xr + (-w / 2 * math.cos(th) + h / 2 * math.sin(th))
+            cz = z + (w / 2 * math.sin(th) + h / 2 * math.cos(th))
+            box('%s_lean' % name, (w, depth * 0.85, h), (cx, y + sy * depth * 0.425, cz), _bmat(rnd), 'Books', 0.002, (0, th, 0))
+        else:
+            zc = z
+            for k in range(rnd.randint(2, 4)):
+                bw, bd, bh = rnd.uniform(0.2, 0.25), rnd.uniform(0.15, 0.19), rnd.uniform(0.02, 0.04)
+                box('%s_flat%d' % (name, k), (bw, bd, bh), (x1 - 0.14 + rnd.uniform(-0.01, 0.01), y + sy * (bd / 2 + 0.02), zc + bh / 2), _bmat(rnd), 'Books', 0.002, (0, 0, rnd.uniform(-0.15, 0.15)))
+                zc += bh
+def plant(name, loc, height=0.9, leaves=16, seed=1, pot=None):
+    rnd = random.Random(seed)
+    ph = height * 0.3
+    pm = pot or pbr('pot_terracotta', (0.55, 0.3, 0.2), (0.7, 0.9), 'plaster', 0.15, 6)
+    cyl(name + '_pot', 0.14, ph, (loc[0], loc[1], loc[2] + ph / 2), pm, 'Plants', 32, 0.006)
+    cyl(name + '_soil', 0.125, 0.012, (loc[0], loc[1], loc[2] + ph - 0.004), pbr('soil', (0.06, 0.045, 0.035), (0.85, 1.0), 'plaster', 0.3, 8), 'Plants', 24, 0)
+    sm = pbr('stem_green', (0.14, 0.26, 0.07), (0.4, 0.6), 'plaster', 0.08, 30, 0.2)
+    for i in range(leaves):
+        a = rnd.uniform(0, 2 * math.pi)
+        ca, sa = math.cos(a), math.sin(a)
+        ln = height * rnd.uniform(0.3, 0.5)
+        ro = rnd.uniform(0.04, 0.15)
+        p0 = (loc[0] + 0.015 * ca, loc[1] + 0.015 * sa, loc[2] + ph)
+        p1 = (loc[0] + ro * ca, loc[1] + ro * sa, loc[2] + ph + height * rnd.uniform(0.25, 0.55))
+        tube('%s_stem%d' % (name, i), p0, p1, 0.0045, 0.003, sm, 'Plants', 0.15)
+        lm = leaf_mat('leaf_%d' % (i % 3), (0.07 + 0.02 * (i % 3), 0.24 - 0.02 * (i % 3), 0.06))
+        leaf('%s_leaf%d' % (name, i), ln, ln * rnd.uniform(0.35, 0.5), p1, (rnd.uniform(-0.25, 0.25), -rnd.uniform(0.15, 0.7), a), lm)
+def kelvin(k):
+    t = k / 100.0
+    r = 255 if t <= 66 else 329.698727446 * ((t - 60) ** -0.1332047592)
+    g = 99.4708025861 * math.log(t) - 161.1195681661 if t <= 66 else 288.1221695283 * ((t - 60) ** -0.0755148492)
+    b = 255 if t >= 66 else (0 if t <= 19 else 138.5177312231 * math.log(t - 10) - 305.0447927307)
+    return tuple((max(0, min(255, x)) / 255.0) ** 2.2 for x in (r, g, b))
+def rgba(c, a=1.0):
+    try:
+        c = tuple(c)
+        return (c[0], c[1], c[2], c[3] if len(c) > 3 else a)
+    except Exception:
+        return (0.8, 0.8, 0.8, a)
+def kelvin4(k):
+    return rgba(kelvin(k))
+def lamp(name, kind, loc, watts, k=4000, size=0.5, rot=(0, 0, 0), spot=0.9, col='Lights'):
+    d = bpy.data.lights.new(name, kind)
+    d.energy = watts
+    d.color = kelvin(k)
+    if kind == 'AREA':
+        d.size = size
+    elif kind == 'SUN':
+        d.angle = math.radians(size if size > 1 else 0.53)
+    else:
+        d.shadow_soft_size = size
+    if kind == 'SPOT':
+        d.spot_size = spot
+        d.spot_blend = 0.5
+    o = bpy.data.objects.new(name, d)
+    o.location = loc
+    o.rotation_euler = rot
+    collection(col).objects.link(o)
+    return o
+def fallback_lighting():
+    b = room_bounds()
+    R = globals().get('ROOM')
+    h = R['h'] if isinstance(R, dict) and isinstance(R.get('h'), (int, float)) else 2.8
+    if b:
+        cx, cy = (b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2
+        sz = max(b[1][0] - b[0][0], b[1][1] - b[0][1]) * 0.6
+    else:
+        cx, cy, sz = 0.0, 0.0, 2.5
+    lamp('Fallback_Soft_Key', 'AREA', (cx, cy, h - 0.2), 500, 4500, sz)
+    try:
+        wd = sc.world or bpy.data.worlds.new('World')
+        sc.world = wd
+        wd.use_nodes = True
+        bg = wd.node_tree.nodes.get('Background')
+        if bg:
+            bg.inputs['Color'].default_value = (0.35, 0.4, 0.5, 1.0)
+            bg.inputs['Strength'].default_value = 0.3
+    except Exception:
+        pass
+    return 'Fallback_Soft_Key'
+def enforce_clear_zone():
+    if not sc.camera or not (CLEAR_ZONE_W or CLEAR_ZONE_NAMES):
+        return [], 'off, or no scene camera (sc.camera=%s)' % sc.camera
+    from mathutils import Vector
+    bpy.context.view_layer.update()
+    mw = sc.camera.matrix_world
+    o = mw.translation
+    fw = mw.to_3x3() @ Vector((0, 0, -1))
+    f = Vector((fw.x, fw.y, 0))
+    if f.length < 1e-6:
+        return [], 'camera looks straight up or down'
+    f.normalize()
+    r = Vector((f.y, -f.x, 0))
+    half = CLEAR_ZONE_W / 2
+    back = TALENT_DIST + 0.75
+    hid = collection('ClearZone_Hidden')
+    moved = []
+    shifted = []
+    hidden_groups = []
+    st = {'meshes': 0, 'named': 0, 'shell': 0, 'flat': 0, 'thin': 0, 'outside': 0}
+    elig = []
+    def hide(ob):
+        for c in list(ob.users_collection):
+            c.objects.unlink(ob)
+        hid.objects.link(ob)
+        moved.append(ob.name)
+    for ob in list(bpy.data.objects):
+        if ob.type != 'MESH' or ob.name == 'Auto_Ceiling' or not getattr(ob, 'visible_camera', True) or hid in ob.users_collection[:]:
+            continue
+        st['meshes'] += 1
+        n = ob.name.lower()
+        if any(k in n for k in CLEAR_ZONE_NAMES):
+            hide(ob)
+            continue
+        if not CLEAR_ZONE_W:
+            continue
+        if any(k in n for k in ('floor', 'ceiling', 'wall', 'rug', 'carpet')):
+            st['named'] += 1
+            continue
+        if any(c.name.lower().startswith('shell') for c in ob.users_collection):
+            st['shell'] += 1
+            continue
+        pts = [ob.matrix_world @ Vector(c) for c in ob.bound_box]
+        lat = [(p - o).dot(r) for p in pts]
+        al = [(p - o).dot(f) for p in pts]
+        zs = [p.z for p in pts]
+        wl = max(lat) - min(lat)
+        wa = max(al) - min(al)
+        if max(zs) < 0.05 or min(zs) > 2.2 or wl > 8 or wa > 8:
+            st['flat'] += 1
+            continue
+        if min(wl, wa) < 0.12 and min(zs) > 0.5:
+            st['thin'] += 1
+            continue
+        elig.append((ob, [min(lat), min(al), min(zs)], [max(lat), max(al), max(zs)], pts))
+    par = list(range(len(elig)))
+    def find(i):
+        while par[i] != i:
+            par[i] = par[par[i]]
+            i = par[i]
+        return i
+    for i in range(len(elig)):
+        for j in range(i + 1, len(elig)):
+            if all(elig[i][1][k] < elig[j][2][k] + 0.03 and elig[i][2][k] > elig[j][1][k] - 0.03 for k in range(3)):
+                par[find(i)] = find(j)
+    groups = {}
+    for i, it in enumerate(elig):
+        groups.setdefault(find(i), []).append(it)
+    rb = room_bounds()
+    for members in groups.values():
+        lo = [min(m[1][k] for m in members) for k in range(3)]
+        hi = [max(m[2][k] for m in members) for k in range(3)]
+        if not (hi[0] > -half and lo[0] < half and hi[1] > 0.3 and lo[1] < back):
+            st['outside'] += len(members)
+            continue
+        allp = [p for m in members for p in m[3]]
+        wlo = [min(p[i] for p in allp) for i in range(3)]
+        whi = [max(p[i] for p in allp) for i in range(3)]
+        size = [whi[i] - wlo[i] for i in range(3)]
+        ctr = [(wlo[i] + whi[i]) / 2 for i in range(3)]
+        done = False
+        if all(m[0].parent is None for m in members):
+            for sh in sorted((half + 0.05 - lo[0], -(hi[0] + half + 0.05)), key=abs):
+                d = r * sh
+                pos = (ctr[0] + d.x, ctr[1] + d.y, ctr[2])
+                if rb and not all(pos[i] - size[i] / 2 >= rb[0][i] and pos[i] + size[i] / 2 <= rb[1][i] for i in (0, 1)):
+                    continue
+                if not in_view(pos, size, floor=True):
+                    continue
+                for m in members:
+                    m[0].location += d
+                shifted.append('%s (%.2f m)' % (members[0][0].name, sh))
+                done = True
+                break
+        if not done:
+            hidden_groups.append('%s x%d: %.1f to %.1f m across, %.1f to %.1f m ahead, no free spot to shift to' % (members[0][0].name, len(members), lo[0], hi[0], lo[1], hi[1]))
+            for m in members:
+                hide(m[0])
+    hid.hide_render = True
+    hid.hide_viewport = True
+    bpy.context.view_layer.update()
+    info = 'camera (%.1f, %.1f, %.1f) facing (%.2f, %.2f), zone %.1f m wide to %.1f m ahead, skipped: %s' % (o.x, o.y, o.z, f.x, f.y, CLEAR_ZONE_W, back, st)
+    if shifted:
+        info += ', shifted whole groups out of the zone: ' + ', '.join(shifted[:6])
+    if hidden_groups:
+        info += ', hid whole groups: ' + '; '.join(hidden_groups[:4])
+    return moved, info
+def seal_gaps(nx=48, ny=27):
+    cam = sc.camera
+    b = room_bounds()
+    if not cam or not b:
+        return []
+    from mathutils import Vector
+    bpy.context.view_layer.update()
+    R = globals().get('ROOM')
+    zt = R['h'] if isinstance(R, dict) and isinstance(R.get('h'), (int, float)) else None
+    if zt is None:
+        zs = [(ob.matrix_world @ Vector(c)).z for ob in bpy.data.objects if ob.type == 'MESH' and 'ceiling' in ob.name.lower() for c in ob.bound_box]
+        if not zs:
+            return []
+        zt = max(zs)
+    lo = [b[0][0] - 0.2, b[0][1] - 0.2, -0.05]
+    hi = [b[1][0] + 0.2, b[1][1] + 0.2, zt + 0.05]
+    wins = []
+    for ob in bpy.data.objects:
+        if ob.type == 'MESH' and any(k in ob.name.lower() for k in ('window', 'glass', 'skylight', 'door')):
+            pts = [ob.matrix_world @ Vector(c) for c in ob.bound_box]
+            wins.append(([min(q[a] for q in pts) - 0.3 for a in range(3)], [max(q[a] for q in pts) + 0.3 for a in range(3)]))
+    dg = bpy.context.evaluated_depsgraph_get()
+    tr, br, bl, tl = cam.data.view_frame(scene=sc)
+    mw = cam.matrix_world
+    o = mw.translation.copy()
+    faces = {}
+    for j in range(ny):
+        for i in range(nx):
+            p = bl + (br - bl) * ((i + 0.5) / nx) + (tl - bl) * ((j + 0.5) / ny)
+            d = (mw.to_3x3() @ p).normalized()
+            if sc.ray_cast(dg, o, d)[0]:
+                continue
+            ts = [((hi[k] - o[k]) / d[k] if d[k] > 0 else (lo[k] - o[k]) / d[k]) if abs(d[k]) > 1e-9 else 1e9 for k in range(3)]
+            k = ts.index(min(ts))
+            H = o + d * ts[k]
+            if any(all(w[0][a] <= H[a] <= w[1][a] for a in range(3)) for w in wins):
+                continue
+            faces.setdefault((k, 1 if d[k] > 0 else -1), []).append(H)
+    done = []
+    for (k, sg), pts in faces.items():
+        a1, a2 = [x for x in range(3) if x != k]
+        c = [0, 0, 0]
+        sz = [0.01, 0.01, 0.01]
+        for a in (a1, a2):
+            mn = min(q[a] for q in pts) - 0.25
+            mx = max(q[a] for q in pts) + 0.25
+            c[a] = (mn + mx) / 2
+            sz[a] = mx - mn
+        c[k] = (hi[k] if sg > 0 else lo[k]) + sg * 0.005
+        m = MATS.get('ceiling') if (k == 2 and sg > 0 and MATS.get('ceiling')) else pbr('seal_paint', (0.7, 0.68, 0.64), (0.5, 0.7), 'plaster', 0.03, 1.0)
+        ob = box('Seal_%d%s' % (k, '+' if sg > 0 else '-'), tuple(sz), tuple(c), m, 'Shell', 0)
+        try:
+            ob.visible_shadow = False
+        except Exception:
+            pass
+        done.append(ob.name)
+    return done
+def frame_check(nx=16, ny=9):
+    cam = sc.camera
+    if not cam:
+        return (0, 0, 0)
+    bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get()
+    tr, br, bl, tl = cam.data.view_frame(scene=sc)
+    mw = cam.matrix_world
+    o = mw.translation.copy()
+    miss = top = 0
+    for j in range(ny):
+        for i in range(nx):
+            p = bl + (br - bl) * ((i + 0.5) / nx) + (tl - bl) * ((j + 0.5) / ny)
+            d = (mw.to_3x3() @ p).normalized()
+            if not sc.ray_cast(dg, o, d)[0]:
+                miss += 1
+                if j >= ny - 2:
+                    top += 1
+    return (miss, nx * ny, top)
+def auto_ceiling():
+    from mathutils import Vector
+    objs = [o for o in bpy.data.objects if o.type == 'MESH' and o.name != 'Auto_Ceiling']
+    shell = [o for o in objs if any(c.name.lower().startswith('shell') for c in o.users_collection)] or objs
+    pts = [o.matrix_world @ Vector(c) for o in shell for c in o.bound_box]
+    if not pts:
+        return
+    x0, x1 = min(p.x for p in pts), max(p.x for p in pts)
+    y0, y1 = min(p.y for p in pts), max(p.y for p in pts)
+    z = max(p.z for p in pts)
+    R = globals().get('ROOM')
+    if isinstance(R, dict) and isinstance(R.get('h'), (int, float)):
+        z = R['h']
+    m = MATS.get('ceiling') or pbr('auto_ceiling', (0.85, 0.85, 0.83), (0.5, 0.7))
+    o = box('Auto_Ceiling', (x1 - x0, y1 - y0, 0.05), ((x0 + x1) / 2, (y0 + y1) / 2, z + 0.025), m, 'Shell', 0)
+    try:
+        o.visible_shadow = False
+    except Exception:
+        pass
+def report(lines, title='Build finished'):
+    txt = bpy.data.texts.get('build_log') or bpy.data.texts.new('build_log')
+    txt.clear()
+    txt.write('\n'.join(lines))
+    def draw(self, ctx):
+        for l in lines[:12]:
+            self.layout.label(text=l[:90])
+        self.layout.label(text='Full log: Text Editor > build_log')
+    try:
+        bpy.context.window_manager.popup_menu(draw, title=title, icon='INFO')
+    except Exception:
+        pass
+    print('\n'.join(lines))
+def pbr(name, base_rgb=(0.6, 0.6, 0.6), rough=(0.5, 0.7), kind='plaster', bump=0.08, scale=1.0, var=0.12, **kw):
+    base = tuple(kw.get('base', kw.get('color', kw.get('base_color', base_rgb))))[:3]
+    if 'roughness' in kw:
+        rough = kw['roughness']
+    if not isinstance(rough, (tuple, list)):
+        rough = (max(0, rough - 0.05), min(1, rough + 0.05))
+    if name in MATS:
+        return MATS[name]
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    N = nt.nodes.new
+    L = nt.links.new
+    out = N('ShaderNodeOutputMaterial')
+    bs = N('ShaderNodeBsdfPrincipled')
+    tc = N('ShaderNodeTexCoord')
+    mp = N('ShaderNodeMapping')
+    L(tc.outputs['Object'], mp.inputs['Vector'])
+    mp.inputs['Scale'].default_value = (scale, scale, scale)
+    mp.name = 'GrainMap'
+    oi = N('ShaderNodeObjectInfo')
+    off = N('ShaderNodeCombineXYZ')
+    L(_mn(nt, 'MULTIPLY', oi.outputs['Random'], 41.0), off.inputs['X'])
+    L(_mn(nt, 'MULTIPLY', oi.outputs['Random'], 17.0), off.inputs['Y'])
+    L(_mn(nt, 'MULTIPLY', oi.outputs['Random'], 29.0), off.inputs['Z'])
+    L(off.outputs['Vector'], mp.inputs['Location'])
+    n1 = N('ShaderNodeTexNoise')
+    n1.inputs['Scale'].default_value = 3
+    n1.inputs['Detail'].default_value = 8
+    n2 = N('ShaderNodeTexNoise')
+    n2.inputs['Scale'].default_value = 60
+    vo = N('ShaderNodeTexVoronoi')
+    vo.inputs['Scale'].default_value = 30
+    for t in (n1, n2, vo):
+        L(mp.outputs['Vector'], t.inputs['Vector'])
+    fac = n1.outputs['Fac']
+    if kind == 'wood':
+        wv = N('ShaderNodeTexWave')
+        wv.inputs['Scale'].default_value = 25
+        wv.bands_direction = 'DIAGONAL'
+        wv.inputs['Distortion'].default_value = 8
+        wv.inputs['Detail'].default_value = 3
+        L(mp.outputs['Vector'], wv.inputs['Vector'])
+        fac = wv.outputs['Fac']
+    mx = N('ShaderNodeMix')
+    mx.data_type = 'RGBA'
+    mx.inputs[6].default_value = tuple(max(0, c * (1 - var)) for c in base) + (1,)
+    mx.inputs[7].default_value = tuple(min(1, c * (1 + var)) for c in base) + (1,)
+    L(_mn(nt, 'ADD', fac, _mn(nt, 'MULTIPLY', _mn(nt, 'SUBTRACT', oi.outputs['Random'], 0.5), 0.5)), mx.inputs[0])
+    ao = N('ShaderNodeAmbientOcclusion')
+    ao.inputs['Distance'].default_value = 0.3
+    L(mx.outputs[2], ao.inputs['Color'])
+    m2 = N('ShaderNodeMix')
+    m2.data_type = 'RGBA'
+    m2.inputs[0].default_value = 0.7
+    L(mx.outputs[2], m2.inputs[6])
+    L(ao.outputs['Color'], m2.inputs[7])
+    cc = m2.outputs[2]
+    if kind == 'plaster':
+        sz = N('ShaderNodeSeparateXYZ')
+        L(tc.outputs['Generated'], sz.inputs['Vector'])
+        st = N('ShaderNodeTexNoise')
+        st.inputs['Scale'].default_value = 0.8
+        st.inputs['Detail'].default_value = 6
+        sk = N('ShaderNodeTexNoise')
+        sk.inputs['Scale'].default_value = 4
+        m3 = N('ShaderNodeMapping')
+        m3.inputs['Scale'].default_value = (14, 14, 0.5)
+        L(tc.outputs['Generated'], m3.inputs['Vector'])
+        L(tc.outputs['Generated'], st.inputs['Vector'])
+        L(m3.outputs['Vector'], sk.inputs['Vector'])
+        lv = _mn(nt, 'ADD', _mn(nt, 'MULTIPLY', st.outputs['Fac'], 0.35), _mn(nt, 'MULTIPLY', sk.outputs['Fac'], 0.25))
+        sf = _mn(nt, 'MAXIMUM', _mn(nt, 'MULTIPLY', lv, 0.6), _mn(nt, 'MULTIPLY', _rng(nt, sz.outputs['Z'], 0.0, 0.12, 1.0, 0.0), 0.3))
+        sm = N('ShaderNodeMix')
+        sm.data_type = 'RGBA'
+        sm.blend_type = 'MULTIPLY'
+        sm.inputs[7].default_value = (0.72, 0.7, 0.67, 1)
+        L(sf, sm.inputs[0])
+        L(cc, sm.inputs[6])
+        pt = N('ShaderNodeCombineXYZ')
+        tone = _mn(nt, 'ADD', 0.96, _mn(nt, 'MULTIPLY', oi.outputs['Random'], 0.08))
+        for ax in ('X', 'Y', 'Z'):
+            L(tone, pt.inputs[ax])
+        sm2 = N('ShaderNodeMix')
+        sm2.data_type = 'RGBA'
+        sm2.blend_type = 'MULTIPLY'
+        sm2.inputs[0].default_value = 1.0
+        L(sm.outputs[2], sm2.inputs[6])
+        L(pt.outputs['Vector'], sm2.inputs[7])
+        cc = sm2.outputs[2]
+    L(cc, bs.inputs['Base Color'])
+    ad = N('ShaderNodeMath')
+    ad.operation = 'ADD'
+    L(n2.outputs['Fac'], ad.inputs[0])
+    L(vo.outputs['Distance'], ad.inputs[1])
+    mr = N('ShaderNodeMapRange')
+    mr.inputs['From Max'].default_value = 2.0
+    mr.inputs['To Min'].default_value = rough[0]
+    mr.inputs['To Max'].default_value = rough[1]
+    L(ad.outputs[0], mr.inputs['Value'])
+    L(mr.outputs['Result'], bs.inputs['Roughness'])
+    bp = N('ShaderNodeBump')
+    bp.inputs['Strength'].default_value = bump
+    bp.inputs['Distance'].default_value = 0.01
+    L(n2.outputs['Fac'], bp.inputs['Height'])
+    L(bp.outputs['Normal'], bs.inputs['Normal'])
+    if kind == 'metal':
+        bs.inputs['Metallic'].default_value = 1.0
+    L(bs.outputs['BSDF'], out.inputs['Surface'])
+    m['kind'] = kind
+    MATS[name] = m
+    return m
+def glass(name='Glass', tint=(0.92, 0.96, 1.0, 1.0)):
+    if name in MATS:
+        return MATS[name]
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    N = nt.nodes.new
+    L = nt.links.new
+    out = N('ShaderNodeOutputMaterial')
+    lp = N('ShaderNodeLightPath')
+    tr = N('ShaderNodeBsdfTransparent')
+    tr.inputs['Color'].default_value = tint
+    gl = N('ShaderNodeBsdfGlossy')
+    gl.inputs['Roughness'].default_value = 0.02
+    fr = N('ShaderNodeFresnel')
+    fr.inputs['IOR'].default_value = 1.45
+    inn = N('ShaderNodeMixShader')
+    L(fr.outputs[0], inn.inputs[0])
+    L(tr.outputs[0], inn.inputs[1])
+    L(gl.outputs[0], inn.inputs[2])
+    sh = N('ShaderNodeBsdfTransparent')
+    mo = N('ShaderNodeMixShader')
+    L(lp.outputs['Is Shadow Ray'], mo.inputs[0])
+    L(inn.outputs[0], mo.inputs[1])
+    L(sh.outputs[0], mo.inputs[2])
+    L(mo.outputs[0], out.inputs['Surface'])
+    MATS[name] = m
+    return m
+</script>
+<script type="text/plain" id="run">
+LOG = []
+if RESET_SCENE:
+    LOG.append('Scene reset: removed %d old objects before building' % reset_scene())
+for i in range(1, 6):
+    f = next((g for n, g in sorted(globals().items()) if n.startswith('stage%d_' % i) and callable(g)), None)
+    if f is None:
+        LOG.append('SKIPPED: no function named stage%d_...' % i)
+        continue
+    try:
+        f()
+        LOG.append('OK: ' + f.__name__)
+    except Exception:
+        import traceback
+        tb = traceback.format_exc().strip().splitlines()
+        LOG.append('FAILED: ' + f.__name__ + ' | ' + ' | '.join(l.strip() for l in tb[-3:]))
+if any(l.startswith(('FAILED: stage3', 'SKIPPED: no function named stage3')) for l in LOG):
+    try:
+        LOG.append('Stage 3 did not finish, added %s and a dim world so the room is not lit only by lamps' % fallback_lighting())
+    except Exception as e:
+        LOG.append('Fallback lighting failed: ' + repr(e))
+try:
+    cp = contain_props()
+    if cp:
+        LOG.append('Moved stray props back inside the room and into frame: ' + ', '.join(cp[:6]))
+except Exception as e:
+    LOG.append('Contain check failed: ' + repr(e))
+try:
+    zn, zi = enforce_clear_zone()
+    LOG.append('Clear zone: moved %d objects %s | %s' % (len(zn), ', '.join(zn[:6]), zi))
+except Exception as e:
+    LOG.append('Clear zone failed: ' + repr(e))
+try:
+    og = remove_orphan_lights()
+    if ORPHAN_MOVED:
+        LOG.append('Moved lights onto their fixtures: ' + ', '.join(ORPHAN_MOVED[:6]))
+    if og:
+        LOG.append('Switched off lights with no fixture nearby (they cause stray glow): ' + ', '.join(og[:6]))
+except Exception as e:
+    LOG.append('Orphan light check failed: ' + repr(e))
+try:
+    configure_render()
+except Exception as e:
+    LOG.append('FAILED: configure_render ' + repr(e))
+try:
+    sg = seal_gaps()
+    if sg:
+        LOG.append('Sealed gaps in the shell with patches: ' + ', '.join(sg))
+except Exception as e:
+    LOG.append('Seal check failed: ' + repr(e))
+try:
+    fm = frame_check()
+    if fm[2] >= 3:
+        auto_ceiling()
+        LOG.append('Open top of frame detected: added Auto_Ceiling')
+        fm = frame_check()
+    LOG.append('Frame check: %d of %d view rays hit nothing' % (fm[0], fm[1]))
+except Exception as e:
+    LOG.append('Frame check failed: ' + repr(e))
+try:
+    lr = layout_report()
+    LOG.append('Layout: ' + ('; '.join(lr[:8]) if lr else 'no collisions or cut-off decor found'))
+except Exception as e:
+    LOG.append('Layout check failed: ' + repr(e))
+if AUTO_EXPOSE:
+    try:
+        LOG.append('Auto exposure set to %+.2f EV' % auto_expose(AE_TARGET))
+    except Exception as e:
+        LOG.append('Auto exposure failed: ' + repr(e))
+LOG.append('Meshes: %d, lights: %d, cameras: %d' % tuple(sum(1 for o in bpy.data.objects if o.type == t) for t in ('MESH', 'LIGHT', 'CAMERA')))
+LOG.append('Poly Haven: ' + (', '.join(PH_LOG[:6]) if PH_LOG else 'no downloads attempted'))
+report(LOG)
+if RENDER_PREVIEW:
+    sc.render.filepath = '//preview.png'
+    bpy.ops.render.render(write_still=True)
+</script>
+<script type="text/plain" id="tt">
+def _t(name, fn):
+    try:
+        fn()
+        return 'PASS: ' + name
+    except Exception as e:
+        return 'FAIL: ' + name + ' ' + repr(e)
+def _ph2():
+    assert ph_material('t_ph', 'brown_planks_03'), str(PH_LOG[-3:])
+def _ph():
+    assert ph_json('https://api.polyhaven.com/files/brown_planks_03'), str(PH_LOG[-1:])
+R = [
+    _t('pbr plaster', lambda: pbr('t_plaster', (0.7, 0.7, 0.7))),
+    _t('pbr wood', lambda: pbr('t_wood', (0.4, 0.25, 0.12), (0.3, 0.45), 'wood')),
+    _t('glass', lambda: glass('t_glass')),
+    _t('box', lambda: box('t_box', (1, 1, 1), (0, 0, 0.5), MATS['t_plaster'])),
+    _t('cyl', lambda: cyl('t_cyl', 0.2, 0.5, (2, 0, 0.25), MATS['t_wood'])),
+    _t('configure_render', configure_render),
+    _t('poly haven reachable', _ph),
+    _t('poly haven texture', _ph2),
+]
+R.append('Blender ' + bpy.app.version_string)
+report(R, 'Helper self-test')
+</script>
+<section class="pn"><h2>Repair prompt</h2><p class="hint">Use in the same chat where the AI wrote the script, so it can see its own code.</p>
+<label>Blender version<input id="bv" placeholder="e.g. 4.2 LTS"></label>
+<label style="margin-top:8px">Error text from Blender<textarea id="err"></textarea></label>
+<label style="margin-top:8px">What looked wrong? (optional)<textarea id="wr" placeholder="e.g. windows look into a void, floor too glossy"></textarea></label>
+<div class="row"><button class="pr" id="rep">Copy repair prompt</button></div></section>
+</div></div>
+<script>
+var F1=[["name","Project name","text","Stage"],["preset","Scene preset","sel",["Modern office","Boardroom","Atrium or windowed hall","Living room","Library","Loft studio","Kitchen","Hotel lobby","Podcast set"]],["framing","Talent framing","sel",["Medium (waist up)","Wide (full body)","Close-up (head and shoulders)"]],["window","Window side (camera left or right, match talent key light)","sel",["Camera left","Camera right","No window"]],["furn","Furniture in front of background","sel",["Match to the photo","None, clear floor","Minimal low furniture"]],["mode","Mode","sel",["Faithful","Creative"]],["into","Pasting into","sel",["Gemini","ChatGPT","Claude","Other chat AI"]]];
+var F2=[["tod","Time of day","sel",["Morning","Midday","Golden hour","Overcast","Dusk","Night (practicals only)"]],["mood","Lighting mood","sel",["Neutral natural","Warm and cosy","Cool corporate","High-key bright","Moody low-key"]],["tex","Texture source","sel",["Procedural first (unique)","Mixed","Poly Haven first"]]];
+var F3=[["output","Output","sel",["Still image","Video loop"]],["secs","Seconds","number",8],["move","Camera move","sel",["Static","Slow dolly in","Slow pan","Subtle handheld drift"]],["engine","Render engine","sel",["Cycles","EEVEE"]],["res","Resolution","sel",["1920x1080","3840x2160","1280x720"]],["camh","Camera height (m)","number",1.48],["sensor","Sensor width (mm)","number",23.1],["lens","Focal length (mm)","number",24],["fstop","Aperture (f-stop)","number",4],["focus","Focus distance (m)","number",2.8],["zw","Clear zone width (m)","number",2.5],["hn","Always hide objects named (words, comma separated)","text",""]];
+var CK=[["clear","Keep the centre clear for the talent",1],["ph","Use Poly Haven assets (turn off only if Blender has no internet; biggest jump in realism)",1],["haze","Subtle atmospheric haze and soft fill lights",1],["rs","Start from an empty scene (deletes everything currently in this scene)",1],["ae","Auto-balance exposure after building (two quick test renders)",1],["prev","Render a preview automatically after building",0]];
+var ASSETS="hdri: kloofendal_48d_partly_cloudy_puresky\nhdri: studio_small_09\ntexture: brown_planks_03\ntexture: beige_wall_001\ntexture: concrete_floor_worn_001\nmodel: potted_plant_01\nmodel: ArmChair_01\nmodel: Ottoman_01";
+var STEPS=["Full script","1 Materials","2 Shell and camera","3 Lighting","4 Set dressing","5 Camera and checks"];
+var step=0,ids=[];
+function $(i){return document.getElementById(i)}
+function build(box,arr){arr.forEach(function(f){var l=document.createElement("label");l.textContent=f[1];var e;if(f[2]=="sel"){e=document.createElement("select");f[3].forEach(function(o){var op=document.createElement("option");op.textContent=o;e.appendChild(op)})}else{e=document.createElement("input");e.type=f[2];e.value=f[3];if(f[2]=="number")e.step="any"}e.id=f[0];e.addEventListener("input",draw);l.appendChild(e);$(box).appendChild(l);ids.push(f[0])})}
+build("f1",F1);build("f2",F2);build("f3",F3);
+var F4=[["x_exp","Exposure (stops, e.g. 0.5)","text",""],["x_look","Look","sel",["Medium High Contrast","Base Contrast","High Contrast","Punchy","None"]],["x_eng","Engine","sel",["Cycles","EEVEE"]],["x_q","Quality","sel",["Preview (80 samples)","Draft (32)","Final (256)","High (512)"]],["x_res","Resolution","sel",["Keep current","1280x720","1920x1080","2560x1440","3840x2160"]],["x_dn","Denoise","sel",["On","Off"]],["x_lp","Light power ×","text",""],["x_lens","Focal length (mm)","text",""],["x_fs","Aperture f-stop","text",""],["x_fd","Focus distance (m)","text",""],["x_ch","Camera height (m)","text",""],["x_fx","Photographic finish (glow and lens colour fringe)","sel",["Off","Subtle","Strong"]],["x_trans","Transparent background","sel",["No","Yes"]],["x_act","After applying","sel",["Settings only","Render still to //render.png","Render animation"]]];build("f4",F4);
+CK.forEach(function(c){var l=document.createElement("label");l.className="ck";l.innerHTML='<input type="checkbox" id="'+c[0]+'"'+(c[2]?" checked":"")+'>';l.appendChild(document.createTextNode(c[1]));$("cks").appendChild(l);l.firstChild.addEventListener("input",draw);ids.push(c[0])});
+$("assets").value=ASSETS;$("assets").addEventListener("input",draw);$("style").addEventListener("input",draw);
+STEPS.forEach(function(s,i){var b=document.createElement("button");b.textContent=s;b.setAttribute("aria-pressed",i==0);b.onclick=function(){step=i;[].forEach.call($("tabs").children,function(x,j){x.setAttribute("aria-pressed",j==i)});draw()};$("tabs").appendChild(b)});
+function v(i){var e=$(i);return e.type=="checkbox"?e.checked:e.value}
+function py(){var r=v("res").split("x"),cy=v("engine")=="Cycles";
+return "import bpy, math\nsc = bpy.context.scene\nRENDER_PREVIEW = "+(v("prev")?"True":"False")+"  # preview render after build\nCLEAR_ZONE_W = "+(v("clear")?(Number(v("zw"))||2.5):0)+"  # talent zone width in metres, 0 = off\nTALENT_DIST = "+(Number(v("focus"))||2.8)+"  # metres from camera to talent\nCLEAR_ZONE_NAMES = "+JSON.stringify(v("hn").split(",").map(function(x){return x.trim().toLowerCase()}).filter(Boolean)).replace(/"/g,"'")+"  # always hide objects whose name contains these words\nRESET_SCENE = "+(v("rs")?"True":"False")+"  # delete everything in the scene before building\nAUTO_EXPOSE = "+(v("ae")?"True":"False")+"  # test-render and balance exposure after building\nAE_TARGET = 0.42  # average display brightness 0 to 1 (lower = moodier)\nTEST_CYCLES = "+(cy?"True":"False")+"\nPREVIEW_SAMPLES = 80\nFINAL_SAMPLES = 256\nFINAL = False  # set True for the final render\nVIEW_TRANSFORM = 'AgX'  # never 'Standard'\n\ndef configure_render(final=FINAL):\n    sc.render.resolution_x, sc.render.resolution_y = "+r[0]+", "+r[1]+"\n    sc.render.resolution_percentage = 100\n    sc.view_settings.view_transform = VIEW_TRANSFORM\n    for look in ('AgX - Medium High Contrast', 'Medium High Contrast'):\n        try:\n            sc.view_settings.look = look\n            break\n        except TypeError:\n            pass\n    if TEST_CYCLES or final:\n        sc.render.engine = 'CYCLES'\n        c = sc.cycles\n        c.samples = FINAL_SAMPLES if final else PREVIEW_SAMPLES\n        c.use_adaptive_sampling = True\n        c.adaptive_threshold = 0.01\n        c.use_denoising = True\n        c.denoiser = 'OPENIMAGEDENOISE'\n        c.denoising_input_passes = 'RGB_ALBEDO_NORMAL'\n        c.max_bounces = 8\n        c.diffuse_bounces = 4\n        c.glossy_bounces = 4\n        c.transmission_bounces = 6\n        c.sample_clamp_indirect = 10.0\n        try:\n            prefs = bpy.context.preferences.addons['cycles'].preferences\n            for t in ('OPTIX', 'CUDA', 'HIP', 'METAL', 'ONEAPI'):\n                try:\n                    prefs.compute_device_type = t\n                    prefs.get_devices()\n                    if prefs.devices:\n                        for d in prefs.devices: d.use = True\n                        c.device = 'GPU'\n                        break\n                except Exception:\n                    pass\n        except Exception:\n            pass\n    else:\n        for eng in ('BLENDER_EEVEE_NEXT', 'BLENDER_EEVEE'):\n            try:\n                sc.render.engine = eng\n                break\n            except TypeError:\n                pass\n        try:\n            sc.eevee.use_raytracing = True\n        except Exception:\n            pass"}
+var CODEONLY=" Return ONLY a python code block containing this one function plus any module-level constants it needs.";
+var STEPTXT=["Write the complete script in one go: header, then one function per stage (stage1_materials, stage2_shell, stage3_lighting, stage4_dressing, stage5_camera), then call them in order, each inside try/except.",
+"Do ONLY stage 1. Define def stage1_materials(): which fills MATS with every material the room needs (plaster wall, trim paint, floor, ceiling, wood, 8+ book cover variants, fabrics, metal, glass) using pbr(), glass() and, if allowed, Poly Haven. No geometry."+CODEONLY,
+"Do ONLY stage 2. First define the global dict ROOM (w, d, h in metres). Define def stage2_shell(): building closed walls, floor, a full ceiling slab covering the whole room including the top of the camera frame, window openings with exterior backing, doors, trims, baseboards, bulkheads, panel seams, and the camera (an object named Cam_Main, set as sc.camera). Use MATS and box()."+CODEONLY,
+"Do ONLY stage 3. Define def stage3_lighting(): world (HDRI or sky), sun or window light, haze volume and fill lights. Do NOT create lights for lamps, sconces or other fixtures here: stage 4 creates those next to the fixture it places. The view must read evenly, no wall falling into black."+CODEONLY,
+"Do ONLY stage 4. Define def stage4_dressing(): furniture, shelving, books, props, wall art, rugs, plants, fixtures, switch plates, clutter and wear. Create the light for every lamp, sconce or fixture with lamp() at that fixture's returned loc, right after building it. Respect the clear zone."+CODEONLY,
+"Do ONLY stage 5. Define def stage5_camera(): using the existing camera Cam_Main (never create another), camera move keyframes if requested, then print a summary (object count, clear-zone check, warnings)."+CODEONLY];
+var HELPDOC="\n## Helpers already defined in the script header (do not redefine or re-import)\nsc, MATS (dict name to material), collection(name), bevel(obj, w), report(lines), PH_LOG, configure_render(final), kelvin(k) returns a linear RGB colour for a colour temperature, lamp(name, kind='AREA|POINT|SPOT|SUN', loc=(x,y,z), watts, k=4000, size=0.5, rot=(rx,ry,rz) radians, spot=0.9, col='Lights') creates a light with realistic colour temperature (for SUN, watts is strength 2 to 6 and size is the angle in degrees). Layout: reserve(name, loc=(x,y,z), size=(sx,sy,sz) in world metres, slide=(1,0,0), visible=True, pad=0.05, group=None) returns a collision-free, in-frame loc (sliding along slide) or None; art(name, loc, w, h, facing=(fx,fy) unit vector pointing from the wall into the room, seed=1) builds a framed abstract artwork with its own reserve() and returns the frame or None; in_view(loc, size). Plants and textures: plant(name, loc=(x,y,z), height=0.9, leaves=16, seed=1) builds a potted plant with veined, translucent leaves; leaf(name, length, width, loc, rot, mat) and leaf_mat(name) for custom foliage. Materials from pbr(kind='wood') automatically align their grain with each board's longest side, and every pbr() material varies per object, so reuse one material per wood species. Bookshelves: book_row(name, x0, x1, y, z, depth=0.2, seed=1, hmin=0.2, hmax=0.32, face=-1) fills ONE shelf between x0 and x1 with varied, banded books of different heights and depths, sometimes with a leaning book or a flat stack at the end; y is the shelf back, z the shelf top, face=-1 means spines point toward -Y. plant() now builds stems that connect every leaf. door(name, loc=(x,y,floor), w=0.9, h=2.1, facing=(fx,fy)) builds a complete door with frame, panelled leaf, lever handle, hinges and kickplate (loc is the base centre on the wall surface). window_light(name, loc, w, h, aim=(dx,dy,dz), watts=900, k=5600, bars=(3,2)) creates a large soft window light with invisible-to-camera window bars that cast a pane-shaped shadow pattern; place it just outside the window opening and aim it across the wall. Round shapes are smooth-shaded automatically. rgba(rgb, a=1.0) turns an RGB tuple into the 4 values a node socket needs and kelvin4(k) is kelvin(k) as RGBA; mathutils, Vector, Matrix and Euler are already imported. reserve() lets rugs and carpets lie under furniture (they are only kept inside the walls). reserve() keeps floor items inside the room walls and inside the camera frame by searching nearby spots, and room_bounds() returns ((xmin,ymin),(xmax,ymax)) of the room interior or None.\nGeometry, call with keywords after the name: box(name, size=(x,y,z), loc=(x,y,z), mat=MATS['wall'], col='Shell', b=0.006, rot=(rx,ry,rz) radians); cyl(name, r, h, loc=(x,y,z), mat=..., col='Shell', seg=32, b=0.004, rot=...). col must be a string, mat a material object.\nMaterials: pbr(name, base_rgb=(r,g,b), rough=(lo,hi), kind='plaster|wood|carpet|fabric|paper|metal', bump=0.08, scale=1.0, var=0.12); glass(name); ph_material(name, poly_haven_id, scale=1.0) returns a material or None (then fall back to pbr); ph_hdri(poly_haven_id) returns a local .hdr path or None (then build a Nishita sky). Never parse Poly Haven JSON or download anything yourself.\nWrite exactly the function named below. The app joins all stages and calls them in order inside try/except. No top-level calls, no render config.\n";
+function prompt(){
+var s="You are an expert Blender technical artist. Write ONE complete Python script (Blender 4.2+, bpy only) that builds a photoreal virtual production backdrop for the project \""+v("name")+"\". I have attached photos of the real room"+(v("into")=="Other chat AI"?"":" for "+v("into"))+". "+(v("mode")=="Faithful"?"Be FAITHFUL: reproduce the layout, proportions, colours and materials in the photos as closely as possible.":"Be CREATIVE: use the photos as inspiration and improve the design while keeping the same type of space.")+"\n\n## Brief\n- Space: "+v("preset")+"\n- Talent framing: "+v("framing")+"; talent stands about "+v("focus")+" m from camera\n- Window: "+v("window")+(v("window")=="No window"?"":" (matches the talent key light)")+"\n- Furniture in front of background: "+v("furn")+"\n- Time of day: "+v("tod")+"; mood: "+v("mood")+"\n- Output: "+v("output")+(v("output")=="Video loop"?", "+v("secs")+" s at 24 fps, camera move: "+v("move")+" (keyframed, linear interpolation, loopable)":"")+"\n- Changes requested: "+(v("style").trim()||"none")+"\n"+(v("clear")?"- Keep a clear zone "+v("zw")+" m wide, from the camera to "+(Number(v("focus"))+0.75)+" m ahead, centred on the camera axis: no furniture or props inside it. The header also enforces this by moving offenders into a hidden collection.\n":"")+"\n## Camera (cinema match)\nSensor width "+v("sensor")+" mm (sensor_fit HORIZONTAL), focal length "+v("lens")+" mm, height "+v("camh")+" m, depth of field ON, aperture f/"+v("fstop")+", focus distance "+v("focus")+" m. Work in metres.\n\n## Realism rules (mandatory)\n1. BEVELS: every architectural surface, wall edge, window mullion, trim piece and furniture part gets a Bevel modifier: width 0.003 to 0.015 m, segments 2, limit_method 'ANGLE'.\n2. WINDOWS: never look into a void. Put exterior context outside every window (silhouetted trees, neighbouring facades, or frosted glass with soft sky bounce).\n3. SET DRESSING: add human-scale props suited to the space (recessed downlights with real fixtures, sconces, kickplates and push-plates, signage, plants, side tables, stacked chairs, acoustic partitions).\n4. STRUCTURAL DEPTH: no flat single-plane walls. Build recessed door frames, lintels, ceiling bulkheads, baseboards and 3 to 5 mm dark reveals between panel seams.\n5. ROUGHNESS BREAKUP: never use one flat Roughness value. Pipe multi-scale Noise Texture + Voronoi through a Map Range into Roughness (satin wood 0.28-0.48, matte plaster 0.50-0.68, carpet or upholstery 0.80-0.95) plus micro-bump strength 0.02-0.15. No pure white walls: albedo about 0.8.\n6. GLASS: use Light Path > Is Shadow Ray as the Mix factor between a Fresnel-weighted Transparent + Glossy shader and a Transparent BSDF for shadow rays, so sun casts crisp shadows without darkening the room.\n7. LIGHTING: real colour temperatures (golden hour about 3500 K, overcast about 7000 K). The sun or window light direction comes from the "+v("window")+" side."+(v("haze")?" Add a world Principled Volume (Density 0.002, Anisotropy 0.6) and two area fills named Area_Skylight_SoftFill and Area_Camera_BounceFill so shadows keep detail.":"")+"\n8. ROBUSTNESS: put each build section in its own function, call each inside try/except that prints the error, so one failure never aborts the script. Name objects clearly and group them in collections.\n9. NUANCE (what separates CG from a real set): no flat colours anywhere. Use pbr() or Poly Haven on every surface, with colour variation, wear, dust and darker corners, scuffs, skirting and panel seams, switch plates and sockets, vents, cables, curtains or blinds, rugs, wall art. Shelves: books of varied height, width, colour and slight lean, with gaps, stacked piles and ornaments. Props must not look like primitives: bevelled edges, tapered legs, cushions with thickness, rounded tops. Aim for 150+ distinct objects.\n10. EXPOSURE: the camera view must read evenly. Add wide soft area fills so no wall or shelf falls into black, and avoid hard noisy contact shadows.\n11. GEOMETRY: create every mesh with box(), cyl() or bmesh/from_pydata. Never use bpy.ops (it breaks depending on Blender context). Positions are in metres, rotations in radians.\n12. ENCLOSURE: the room must be closed. Walls run floor to ceiling on every side the camera can see, and a ceiling with its own material spans the whole room, visible at the top of frame. Nothing in frame may show the empty black world.\n13. PHYSICAL PLAUSIBILITY: before coding, plan a layout table (object, width, depth, height, position) and make sure nothing overlaps or floats. Furniture rests on the floor; wall items are mounted flush at real heights (sockets 0.3 m, switches 1.2 m, picture centres 1.5 m, sconces 1.7 m, vents near the ceiling); frames never overlap furniture or each other; books touch their shelves; nothing intersects the shell. Every object must have an obvious purpose.\n14. MOTIVATED LIGHT: one clear key (window or large soft area light) with a visible direction, a weaker fill, and warm 2700 K practicals (lamps, sconces) that visibly light the surface near them. Use kelvin() and lamp(). Aim for wall mid-tones around 0.35 to 0.5 linear: no crushed blacks, no blown whites, and soft contact shadows under every object.\n15. SOFT FORMS: sofas, chairs and cushions are never single boxes. Build separate base, seat, back and arm pieces with large bevels (b up to 0.03), legs, seams, slight asymmetry, and cushions with a small tilt. Add a throw, a rug with a slight curled edge, and a few imperfect items (a stray book, a mug).\n16. COLLISION AND FRAMING: place every wall-mounted item (sconces, vents, switches), every piece of floor furniture and every free-standing group through reserve() BEFORE building it, use the returned loc, and skip the item if it returns None. Pictures use art(), never blank white canvases. Nothing may touch or cross the edge of the camera frame. Wall decor follows one tidy scheme: a single aligned row or grid with equal 0.1 to 0.15 m gaps on a common centre line, at most 3 pieces per wall zone, never overlapping shelving. Seating faces the focal point; no stray chair behind or beside a sofa, and every chair belongs to a desk or table. No unexplained structures such as free-standing frames.\n17. REAL-WORLD DETAIL: add switch plates and sockets, a thermostat, a vent grille, door stops, curtains or blinds, a floor lamp with visible glow, a coffee table with mugs and a book, a throw on the sofa, a plant with varied leaves, scuffs on the floor near doors and an uneven stack of books. Keep colours restrained; no surface above 0.8 albedo, and no white frames or canvases.\n18. TEXTURES: "+(v("tex")=="Poly Haven first"?"Prefer Poly Haven image maps via ph_material for floors, woods, stone and fabric, with pbr() as the fallback. ":v("tex")=="Mixed"?"Use Poly Haven for the floor and large surfaces and procedural pbr() materials for everything else. ":"Use procedural pbr() materials for almost everything so each object is unique, and Poly Haven only for the floor and HDRIs. ")+"This rule overrides any Poly Haven preference above. Use at least three different wood tones (for example oak (0.55,0.38,0.22), walnut (0.28,0.17,0.10), pale ash (0.75,0.62,0.45)) and never one wood material for shelving, frames and floor. Plants must use plant() or leaf(), never flat planes. Add subtle variation: painted surfaces slightly different per panel, books with different cover finishes.\n19. BOOKCASES: fill every shelf with book_row() using a different seed each time, leave one shelf only partly filled, and mix in a vase, a box, a small framed photo or a candle. The unit has boards 0.025 to 0.03 m thick, a kickplate about 0.08 m, a back panel in a darker contrasting tone, side panels slightly proud, and sits about 0.01 m off the wall.\n20. WALLS: paint and plaster use pbr(kind='plaster'), which adds large stains, vertical streaks, bottom scuffs and panel-to-panel tone shifts. Keep panel seams 3 to 5 mm and never leave a large wall as one flat colour.\n21. KEY LIGHT: call window_light() once on the window side (800 to 1200 W, 5600 K by day, 3200 K at dusk), aimed across the back wall at 35 to 55 degrees so the window bars throw a diagonal pane pattern on it. Keep practical lamps as accents and put nothing between the window and the wall.\n22. DOORS AND FLOOR: never an empty frame; use door(). Floors are satin lacquered (roughness 0.3 to 0.45 with large-scale variation and wear paths) so they reflect lamps; add a rug under seating with a slightly curled edge, and make furniture legs and bases touch the floor.\n23. INSIDE THE ROOM: every prop sits inside the room interior and inside the camera frame. Call reserve() before building every plant, lamp, rug, chair, sofa, table and shelf, build at the returned loc, and never place anything outside the walls, inside a wall, or behind the camera. The base of floor items may fall below the bottom edge of the frame; only their upper part has to be visible.\n24. LIGHT LEAKS: no light object may sit inside or behind a wall. Every practical light (point or spot) goes within 0.3 m of a visible fixture whose name contains lamp, sconce, pendant, downlight or light; if the fixture is skipped, skip its light too. Panelled walls need a continuous dark backer slab behind the panels so seams never show light. Lights for lamps and sconces are created in the dressing stage, right after their fixture, at the loc that reserve() returned.\n25. VENTS AND GRILLES: paint the vent in a light painted-metal or plastic material close to the wall colour, never black and never an unlit dark slot; keep it flush with the wall, at most 0.45 m wide and 0.2 m tall, with thin bevelled slats, and keep it out of the top corners of the camera frame.\n26. COLOUR VALUES: Light.color takes 3 values, but every node socket default_value for a colour (Base Color, Emission Color, world Background Color, Volume Color) takes 4. Use rgba((r,g,b)) or kelvin4(k) for sockets and kelvin(k) only for Light.color. mathutils is already imported (Vector, Matrix, Euler); never write bpy.mathutils.\n"+(v("clear")?"27. CLEAR ZONE LAYOUT: the talent stands on the camera axis, so build the room deep enough: put Cam_Main at least "+(Number(v("focus"))+1.8)+" m in front of the back wall. Put shelving, tall furniture and the sofa in the side strips more than "+(Number(v("zw"))/2)+" m left or right of the camera axis, never behind the talent. reserve() refuses spots inside the zone and returns None, so skip the item then.\n":"")+(v("ph")?"\n## Poly Haven\nBlender has internet. Use the header helpers ph_material(name, id, scale) and ph_hdri(id): they handle downloads, 2k maps, BOX projection with blend 0.2 and caching, and return None on failure, in which case fall back to pbr() or a Nishita sky. Prefer image PBR maps for woods, carpet, stone, concrete and fabric. Never write your own downloader. ONLY use IDs from this approved list:\n"+v("assets")+"\n":"\n## Assets\nNo internet: use procedural materials and primitive-built props only.\n")+(step?HELPDOC:"\n## Header (include verbatim at the top of the script)\n```python\n"+py()+"\n\n"+$("hlp").textContent.trim()+"\n```\n")+(v("prev")&&!step?"After building, call configure_render() and render a still preview to //preview.png.\n":"")+"\n## Output\n"+(step?"Staged build. ":"")+STEPTXT[step]+" Return ONLY the script in a single python code block, no explanation.";
+return s}
+function draw(){$("xo").textContent=xs();$("out").textContent=prompt();$("steph").textContent=step?"Guided build: send the stages in order in the same chat, then paste each reply into the assembler below.":"One-shot prompt. Use the stage tabs if the script is too long or keeps failing."}
+function cp(t,m){function ok(){$("st").textContent=m||"Copied"}try{navigator.clipboard.writeText(t).then(ok,fb)}catch(e){fb()}function fb(){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");ok()}catch(e){$("st").textContent="Copy failed: select the text manually"}a.remove()}}
+$("copy").onclick=function(){cp($("out").textContent)};
+$("rep").onclick=function(){cp("The script you wrote failed or looked wrong in Blender "+($("bv").value||"(version unknown)")+".\n\nError text:\n"+($("err").value||"(none)")+"\n\nWhat looked wrong:\n"+($("wr").value||"(nothing noted)")+"\n\nFix it and return the COMPLETE corrected script in one python code block (not a diff). Keep every realism rule from the original brief: AgX view transform, bevels, window exterior backing, roughness breakup, set dressing. Wrap risky sections in try/except.","Repair prompt copied")};
+var KEY="backdrop_projects",P={};
+function load(){try{P=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){P={}}list()}
+function list(){var b=$("sl");b.innerHTML="";var k=Object.keys(P);if(!k.length){b.textContent="Nothing saved yet.";return}k.forEach(function(n){var d=document.createElement("div");d.className="sv";d.innerHTML="<span></span>";d.firstChild.textContent=n;var o=document.createElement("button");o.textContent="Load";o.onclick=function(){var s=P[n];ids.forEach(function(i){if(i in s){var e=$(i);if(e.type=="checkbox")e.checked=s[i];else e.value=s[i]}});$("style").value=s.style||"";$("assets").value=s.assets||ASSETS;draw()};var x=document.createElement("button");x.textContent="Delete";x.onclick=function(){delete P[n];put();list()};d.appendChild(o);d.appendChild(x);b.appendChild(d)})}
+function put(){try{localStorage.setItem(KEY,JSON.stringify(P))}catch(e){$("st").textContent="Saving is unavailable here"}}
+$("save").onclick=function(){var s={};ids.forEach(function(i){s[i]=v(i)});s.style=$("style").value;s.assets=$("assets").value;P[v("name")||"Untitled"]=s;put();list()};
+var SK=["stage1_materials","stage2_shell","stage3_lighting","stage4_dressing","stage5_camera"],S=[],sg=[];
+try{sg=JSON.parse(localStorage.getItem("backdrop_stages")||"[]")}catch(e){}
+function ssv(){try{localStorage.setItem("backdrop_stages",JSON.stringify(S.map(function(t){return t.value})))}catch(e){}}
+SK.forEach(function(k,i){var l=document.createElement("label");l.textContent="Stage "+(i+1)+" code ("+k+")";var t=document.createElement("textarea");t.style.minHeight="60px";t.value=sg[i]||"";t.addEventListener("input",ssv);l.appendChild(t);$("stg").appendChild(l);S.push(t)});
+function strip(t){var m=t.match(/```(?:python|py)?\s*\n([\s\S]*?)```/);return(m?m[1]:t.replace(/```(python|py)?/g,"")).trim()}
+$("asm").onclick=function(){var body=[],bad=[];SK.forEach(function(k,i){var t=strip(S[i].value);if(!t){bad.push("stage "+(i+1)+" is empty");return}if(t.indexOf("def "+k)<0)bad.push("stage "+(i+1)+" has no def "+k);body.push("# ---- stage "+(i+1)+" ----\n"+t)});
+var run=$("run").textContent.replace("#PREV#",v("prev")?"sc.render.filepath = '//preview.png'\nbpy.ops.render.render(write_still=True)":"pass").trim();
+var full=py()+"\n\n"+$("hlp").textContent.trim()+"\n\n"+body.join("\n\n")+"\n\n# ---- runner ----\n"+run+"\n";
+$("full").textContent=full;$("full").hidden=false;$("as").textContent=bad.length?"Built with warnings: "+bad.join("; "):"Built from all 5 stages"};
+$("cpf").onclick=function(){if($("full").hidden)$("asm").onclick();cp($("full").textContent,"Full script copied")};
+function nv(i){var t=$(i).value.trim();return t===""||isNaN(Number(t))?null:Number(t)}
+function xs(){var L=["import bpy","sc = bpy.context.scene","cam = sc.camera"],e=nv("x_exp"),lk=v("x_look"),q={"Preview (80 samples)":80,"Draft (32)":32,"Final (256)":256,"High (512)":512}[v("x_q")],r=v("x_res"),k=nv("x_lp"),cl=[],a;
+L.push("sc.view_settings.view_transform = 'AgX'");if(e!==null)L.push("sc.view_settings.exposure = "+e);
+if(lk=="None")L.push("sc.view_settings.look = 'None'");else L.push("for lk in ('AgX - "+lk+"', '"+lk+"'):","    try:","        sc.view_settings.look = lk","        break","    except TypeError:","        pass");
+if(v("x_eng")=="Cycles")L.push("sc.render.engine = 'CYCLES'","c = sc.cycles","c.samples = "+q,"c.use_adaptive_sampling = True","c.use_denoising = "+(v("x_dn")=="On"?"True":"False"),"c.denoiser = 'OPENIMAGEDENOISE'","c.denoising_input_passes = 'RGB_ALBEDO_NORMAL'");
+else L.push("for eng in ('BLENDER_EEVEE_NEXT', 'BLENDER_EEVEE'):","    try:","        sc.render.engine = eng","        break","    except TypeError:","        pass","try:","    sc.eevee.use_raytracing = True","except Exception:","    pass");
+if(r!="Keep current"){a=r.split("x");L.push("sc.render.resolution_x, sc.render.resolution_y = "+a[0]+", "+a[1],"sc.render.resolution_percentage = 100")}
+var fx=v("x_fx");if(fx!="Off"){var sb=fx=="Subtle";L.push("sc.render.filter_size = 1.5","try:","    sc.use_nodes = True","    nt = sc.node_tree","    nt.nodes.clear()","    rl = nt.nodes.new('CompositorNodeRLayers')","    gl = nt.nodes.new('CompositorNodeGlare')","    gl.glare_type = 'FOG_GLOW'","    gl.quality = 'HIGH'","    gl.threshold = 1.0","    gl.mix = "+(sb?-0.85:-0.6),"    ld = nt.nodes.new('CompositorNodeLensdist')","    ld.inputs['Dispersion'].default_value = "+(sb?0.004:0.012),"    cp = nt.nodes.new('CompositorNodeComposite')","    nt.links.new(rl.outputs['Image'], gl.inputs['Image'])","    nt.links.new(gl.outputs['Image'], ld.inputs['Image'])","    nt.links.new(ld.outputs['Image'], cp.inputs['Image'])","except Exception as e:","    print('Photographic finish unavailable on this Blender version:', e)")}
+if(k!==null&&k!=1)L.push("for l in bpy.data.lights:","    l.energy *= "+k);
+if(nv("x_lens")!==null)cl.push("cam.data.lens = "+nv("x_lens"));
+if(nv("x_fs")!==null)cl.push("cam.data.dof.use_dof = True","cam.data.dof.aperture_fstop = "+nv("x_fs"));
+if(nv("x_fd")!==null)cl.push("cam.data.dof.use_dof = True","cam.data.dof.focus_distance = "+nv("x_fd"));
+if(nv("x_ch")!==null)cl.push("cam.location.z = "+nv("x_ch"));
+if(cl.length){L.push("if cam:");cl.forEach(function(x){L.push("    "+x)})}
+L.push("sc.render.film_transparent = "+(v("x_trans")=="Yes"?"True":"False"));
+var ac=v("x_act");
+if(ac.indexOf("still")>0)L.push("sc.render.filepath = '//render.png'","sc.render.image_settings.file_format = 'PNG'","bpy.ops.render.render(write_still=True)");
+else if(ac.indexOf("animation")>0)L.push("sc.render.filepath = '//render_'","sc.render.image_settings.file_format = 'PNG'","bpy.ops.render.render(animation=True)");
+else L.push("print('Render settings applied')");
+return L.join("\n")}
+$("cpx").onclick=function(){cp($("xo").textContent,"Render script copied")};
+$("tst").onclick=function(){cp(py()+"\n\n"+$("hlp").textContent.trim()+"\n\n"+$("tt").textContent.trim(),"Self-test copied")};
+load();draw();
+</script></main></body></html>
